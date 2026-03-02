@@ -28,7 +28,6 @@ import com.audiobrowser.util.CoilBitmapLoader
 import com.margelo.nitro.audiobrowser.AppKilledPlaybackBehavior
 import com.margelo.nitro.audiobrowser.SearchMode
 import com.margelo.nitro.audiobrowser.SearchParams
-import kotlin.system.exitProcess
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -268,7 +267,6 @@ class Service : MediaLibraryService(), MediaSessionService.Listener {
             scope.cancel()
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
-            exitProcess(0)
           } catch (e: Exception) {
             Timber.e(e, "Error during aggressive cleanup in onTaskRemoved")
             // Still try to stop the service
