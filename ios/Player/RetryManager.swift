@@ -141,8 +141,7 @@ class RetryManager {
 
     let delaySeconds = calculateDelaySeconds()
     let currentGeneration = generation
-    attemptCount += 1
-    logger.info("Scheduling retry #\(self.attemptCount) after \(delaySeconds)s")
+    logger.info("Scheduling retry after \(delaySeconds)s")
 
     // Race between: backoff delay OR network restored (if offline)
     let waitCancelled = await waitForDelayOrNetworkRestored(delaySeconds: delaySeconds)
@@ -172,6 +171,7 @@ class RetryManager {
       }
     }
 
+    attemptCount += 1
     logger.info("Executing retry #\(self.attemptCount)")
     onRetry?(startFromCurrentTime)
     return true
