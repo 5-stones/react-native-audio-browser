@@ -16489,7 +16489,7 @@ __metadata:
     react-native: "npm:0.83.0"
     react-native-builder-bob: "npm:^0.37.0"
     react-native-monorepo-config: "npm:^0.3.1"
-    react-native-nitro-modules: "npm:0.33.3"
+    react-native-nitro-modules: "npm:0.34.1"
     semantic-release: "npm:^24.2.9"
     shaka-player: "npm:^4.15.4"
     typescript: "npm:^5.8.3"
@@ -16566,6 +16566,16 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10/e041d715f3dec41f7307c8507c06908fadac2bca58abc45932ce5659326d0ad47ea38ed9bf2c4abbf9465c8bef83a84d382fcb38b5f5aef4509b501918da71f2
+  languageName: node
+  linkType: hard
+
+"react-native-nitro-modules@npm:0.34.1":
+  version: 0.34.1
+  resolution: "react-native-nitro-modules@npm:0.34.1"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/2754cd1b2bb13fdde31b6d95be665dcdc8af4ecca64e5c123016ab9cbfcf0907ebafff3f4f29ac8be68225543efdd353666d0e80cb9cedde220be4c7ccd93cd9
   languageName: node
   linkType: hard
 
