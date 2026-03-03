@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native'
-import { useDebug } from 'react-native-audio-browser'
+import { useDebug } from '@5stones/react-native-audio-browser'
 
 export function DebugPanel() {
   const [expanded, setExpanded] = useState(false)

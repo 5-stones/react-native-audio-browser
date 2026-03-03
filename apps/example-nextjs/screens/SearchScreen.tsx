@@ -14,7 +14,7 @@ import {
   search,
   Track,
   useActiveTrack
-} from 'react-native-audio-browser'
+} from '@5stones/eact-native-audio-browser'
 import { TrackListItem } from '../components/TrackListItem'
 
 type SearchScreenProps = {

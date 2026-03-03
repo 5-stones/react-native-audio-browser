@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native'
-import { ImageRowItem, navigate, Track } from 'react-native-audio-browser'
+import { ImageRowItem, navigate, Track } from '@5stones/react-native-audio-browser'
 
 type TrackListItemProps = {
   track: Track

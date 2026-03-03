@@ -6,7 +6,7 @@ import AudioBrowser, {
   onTimedMetadata,
   setPlayWhenReady,
   updateNowPlaying
-} from 'react-native-audio-browser'
+} from '@5stones/react-native-audio-browser'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import {
   archiveLibraryEntry,
