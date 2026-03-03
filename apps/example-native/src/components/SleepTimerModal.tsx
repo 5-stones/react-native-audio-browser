@@ -5,7 +5,7 @@ import {
   setSleepTimer,
   setSleepTimerToEndOfTrack,
   useSleepTimer
-} from 'react-native-audio-browser'
+} from '@5stones/react-native-audio-browser'
 
 type Props = {
   visible: boolean

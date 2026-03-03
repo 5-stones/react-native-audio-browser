@@ -8,7 +8,7 @@ import AudioBrowser, {
   setFavorites,
   Track,
   type BrowserConfiguration
-} from 'react-native-audio-browser'
+} from '@5stones/react-native-audio-browser'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { BrowserScreen } from '../screens'
 

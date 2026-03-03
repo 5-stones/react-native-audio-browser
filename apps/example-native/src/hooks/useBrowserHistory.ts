@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { navigate, usePath, useTabs } from 'react-native-audio-browser'
+import { navigate, usePath, useTabs } from '@5stones/react-native-audio-browser'
 
 /**
  * Manages navigation history for the audio browser.

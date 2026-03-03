@@ -17,7 +17,7 @@ import {
   useFormattedNavigationError,
   usePath,
   useTabs
-} from 'react-native-audio-browser'
+} from '@5stones/react-native-audio-browser'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { DebugPanel } from '../components/DebugPanel'
 import { EqualizerModal } from '../components/EqualizerModal'

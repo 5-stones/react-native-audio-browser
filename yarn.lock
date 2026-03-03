@@ -17,6 +17,43 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@5stones/react-native-audio-browser@workspace:*, @5stones/react-native-audio-browser@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "@5stones/react-native-audio-browser@workspace:."
+  dependencies:
+    "@react-native-community/cli": "npm:15.0.0-alpha.2"
+    "@semantic-release/changelog": "npm:^6.0.3"
+    "@semantic-release/git": "npm:^10.0.1"
+    "@types/jest": "npm:^29.5.12"
+    "@types/react": "npm:19.1.1"
+    conventional-changelog-conventionalcommits: "npm:^9.1.0"
+    del-cli: "npm:^5.1.0"
+    jest: "npm:^29.7.0"
+    nitrogen: "npm:^0.33.3"
+    oxfmt: "npm:^0.27.0"
+    oxlint: "npm:^1.42.0"
+    oxlint-tsgolint: "npm:^0.11.2"
+    prettier: "npm:^3.0.3"
+    react: "npm:19.1.1"
+    react-native: "npm:0.83.0"
+    react-native-builder-bob: "npm:^0.37.0"
+    react-native-monorepo-config: "npm:^0.3.1"
+    react-native-nitro-modules: "npm:0.33.3"
+    semantic-release: "npm:^24.2.9"
+    shaka-player: "npm:^4.15.4"
+    typescript: "npm:^5.8.3"
+    typescript-eslint: "npm:^8.46.0"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+    react-native-nitro-modules: "*"
+    shaka-player: ^4.7.9
+  peerDependenciesMeta:
+    shaka-player:
+      optional: true
+  languageName: unknown
+  linkType: soft
+
 "@algolia/abtesting@npm:1.13.0":
   version: 1.13.0
   resolution: "@algolia/abtesting@npm:1.13.0"
@@ -9856,6 +9893,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "example-native@workspace:apps/example-native"
   dependencies:
+    "@5stones/react-native-audio-browser": "workspace:*"
     "@babel/core": "npm:^7.25.2"
     "@babel/preset-env": "npm:^7.25.3"
     "@babel/runtime": "npm:^7.25.0"
@@ -9875,7 +9913,6 @@ __metadata:
     prettier: "npm:^3.0.3"
     react: "npm:19.1.1"
     react-native: "npm:0.83.0"
-    react-native-audio-browser: "workspace:*"
     react-native-mmkv: "npm:^4.1.0"
     react-native-monorepo-config: "npm:^0.3.0"
     react-native-nitro-modules: "npm:0.33.3"
@@ -9888,6 +9925,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "example-nextjs@workspace:apps/example-nextjs"
   dependencies:
+    "@5stones/react-native-audio-browser": "workspace:*"
     "@babel/core": "npm:7.28.4"
     "@expo/next-adapter": "npm:6.0.0"
     "@next/bundle-analyzer": "npm:15.5.4"
@@ -9900,7 +9938,6 @@ __metadata:
     prettier: "npm:3.6.2"
     react: "npm:19.1.1"
     react-dom: "npm:19.1.1"
-    react-native-audio-browser: "workspace:*"
     react-native-safe-area-context: "npm:^5.6.2"
     react-native-web: "npm:0.21.1"
     start-server-and-test: "npm:2.1.2"
@@ -16501,43 +16538,6 @@ __metadata:
   checksum: 10/d5f60c87d285af24b1e1e7eaeb123ec256c3c8bdea7061ab3932e3e14685708221bf234ec50b21e10dd07f008f1b966a2730a0ce4ff67905b3872ff2042aec22
   languageName: node
   linkType: hard
-
-"react-native-audio-browser@workspace:*, react-native-audio-browser@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "react-native-audio-browser@workspace:."
-  dependencies:
-    "@react-native-community/cli": "npm:15.0.0-alpha.2"
-    "@semantic-release/changelog": "npm:^6.0.3"
-    "@semantic-release/git": "npm:^10.0.1"
-    "@types/jest": "npm:^29.5.12"
-    "@types/react": "npm:19.1.1"
-    conventional-changelog-conventionalcommits: "npm:^9.1.0"
-    del-cli: "npm:^5.1.0"
-    jest: "npm:^29.7.0"
-    nitrogen: "npm:^0.33.3"
-    oxfmt: "npm:^0.27.0"
-    oxlint: "npm:^1.42.0"
-    oxlint-tsgolint: "npm:^0.11.2"
-    prettier: "npm:^3.0.3"
-    react: "npm:19.1.1"
-    react-native: "npm:0.83.0"
-    react-native-builder-bob: "npm:^0.37.0"
-    react-native-monorepo-config: "npm:^0.3.1"
-    react-native-nitro-modules: "npm:0.33.3"
-    semantic-release: "npm:^24.2.9"
-    shaka-player: "npm:^4.15.4"
-    typescript: "npm:^5.8.3"
-    typescript-eslint: "npm:^8.46.0"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-    react-native-nitro-modules: "*"
-    shaka-player: ^4.7.9
-  peerDependenciesMeta:
-    shaka-player:
-      optional: true
-  languageName: unknown
-  linkType: soft
 
 "react-native-builder-bob@npm:^0.37.0":
   version: 0.37.0

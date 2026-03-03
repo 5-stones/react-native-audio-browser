@@ -12,7 +12,7 @@ import {
   setEqualizerLevels,
   setEqualizerPreset,
   useEqualizerSettings
-} from 'react-native-audio-browser'
+} from '@5stones/react-native-audio-browser'
 
 export function EqualizerView() {
   const settings = useEqualizerSettings()

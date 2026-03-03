@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { Alert, Platform } from 'react-native'
-import { useBatteryWarning } from 'react-native-audio-browser'
+import { useBatteryWarning } from '@5stones/react-native-audio-browser'
 
 /**
  * Handles battery warning alerts for Android 12+ foreground service restrictions.

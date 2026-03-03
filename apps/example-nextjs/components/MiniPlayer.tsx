@@ -1,4 +1,4 @@
-import type { RepeatMode } from 'react-native-audio-browser'
+import type { RepeatMode } from '@5stones/react-native-audio-browser'
 import Icon from '@react-native-vector-icons/fontawesome6'
 import React from 'react'
 import {
@@ -27,7 +27,7 @@ import {
   useRepeatMode,
   useShuffle,
   useSleepTimerActive
-} from 'react-native-audio-browser'
+} from '@5stones/react-native-audio-browser'
 
 type MiniPlayerProps = {
   onSleepTimerPress: () => void

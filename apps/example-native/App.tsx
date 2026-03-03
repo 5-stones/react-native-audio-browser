@@ -10,7 +10,7 @@ import AudioBrowser, {
   setPlayWhenReady,
   Track,
   updateNowPlaying
-} from 'react-native-audio-browser'
+} from '@5stones/react-native-audio-browser'
 import { createMMKV } from 'react-native-mmkv'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { BatteryWarning } from './src/components/BatteryWarning'

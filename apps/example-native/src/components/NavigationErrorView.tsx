@@ -1,4 +1,4 @@
-import type { FormattedNavigationError } from 'react-native-audio-browser'
+import type { FormattedNavigationError } from '@5stones/react-native-audio-browser'
 import React from 'react'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 
