@@ -40,7 +40,7 @@ import type {
   AudioBrowser as AudioBrowserSpec,
   IosOutput
 } from '../specs/audio-browser.nitro'
-import type { ResolvedTrack, Track } from '../types'
+import type { ResolvedTrack, Track, TrackLoadEvent } from '../types'
 import type { NativeBrowserConfiguration } from '../types/browser-native'
 import { BrowserManager } from './browser/BrowserManager'
 import { FavoriteManager } from './browser/FavoriteManager'
@@ -350,6 +350,26 @@ export class NativeAudioBrowser
   }
 
   /**
+   * Centralizes handleTrackLoad interception logic.
+   * If handleTrackLoad is set on configuration, calls it (intercepted). Otherwise runs defaultBehavior.
+   *
+   * @returns true if the handler intercepted, false if defaultBehavior ran
+   */
+  private async handleLoad(
+    track: Track, queue: Track[], startIndex: number,
+    defaultBehavior: () => void
+  ): Promise<boolean> {
+    const handler = this.configuration.handleTrackLoad
+    if (handler) {
+      const event: TrackLoadEvent = { track, queue, startIndex }
+      await handler(event)
+      return true
+    }
+    defaultBehavior()
+    return false
+  }
+
+  /**
    * Attempts to skip to a track already in the current queue.
    * Used as an optimization to avoid re-expanding the queue.
    *
@@ -357,10 +377,10 @@ export class NativeAudioBrowser
    * @param parentPath The parent path to check against queueSourcePath
    * @returns true if successfully skipped to existing track, false otherwise
    */
-  private trySkipToExistingQueueTrack(
+  private async trySkipToExistingQueueTrack(
     trackId: string,
     parentPath: string
-  ): boolean {
+  ): Promise<boolean> {
     if (parentPath !== this.browserManager.queueSourcePath) {
       return false
     }
@@ -372,8 +392,10 @@ export class NativeAudioBrowser
       return false
     }
 
-    this.skip(index)
-    this.play()
+    await this.handleLoad(queue[index]!, queue, index, () => {
+      this.skip(index)
+      this.play()
+    })
     return true
   }
 
@@ -394,7 +416,9 @@ export class NativeAudioBrowser
       return false
     }
 
-    this.setQueue(result.tracks, result.startIndex)
+    await this.handleLoad(track, result.tracks, result.startIndex, () => {
+      this.setQueue(result.tracks, result.startIndex)
+    })
     return true
   }
 
@@ -413,7 +437,7 @@ export class NativeAudioBrowser
         const trackId = BrowserPathHelper.extractTrackId(url)
 
         // Optimization: skip to track if already in current queue
-        if (trackId && this.trySkipToExistingQueueTrack(trackId, parentPath)) {
+        if (trackId && await this.trySkipToExistingQueueTrack(trackId, parentPath)) {
           return
         }
 
@@ -423,7 +447,7 @@ export class NativeAudioBrowser
         }
 
         // Fallback: load single track if expansion fails
-        this.load(track)
+        await this.handleLoad(track, [track], 0, () => this.load(track))
         return
       }
 
@@ -437,7 +461,7 @@ export class NativeAudioBrowser
 
       // Handle playable track (has src but no URL)
       if (track.src) {
-        this.load(track)
+        await this.handleLoad(track, [track], 0, () => this.load(track))
         return
       }
 

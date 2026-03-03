@@ -108,8 +108,8 @@ public class HybridAudioBrowser: HybridAudioBrowserSpec, @unchecked Sendable {
 
   public var configuration: NativeBrowserConfiguration = .init(
     path: nil, request: nil, media: nil, artwork: nil, routes: nil,
-    singleTrack: nil, androidControllerOfflineError: nil, carPlayUpNextButton: nil,
-    carPlayNowPlayingButtons: nil, formatNavigationError: nil,
+    singleTrack: nil, handleTrackLoad: nil, androidControllerOfflineError: nil,
+    carPlayUpNextButton: nil, carPlayNowPlayingButtons: nil, formatNavigationError: nil,
   ) {
     didSet {
       browserManager.config = BrowserConfig(from: configuration)
@@ -367,6 +367,18 @@ public class HybridAudioBrowser: HybridAudioBrowserSpec, @unchecked Sendable {
     }
   }
 
+  /// Centralizes handleTrackLoad interception logic.
+  /// If handleTrackLoad is set on config, awaits it (intercepted). Otherwise runs defaultBehavior.
+  ///
+  /// - Returns: true if the handler intercepted, false if defaultBehavior ran
+  @discardableResult
+  private func handleLoadAsync(track: Track, queue: [Track], startIndex: Double, defaultBehavior: () async -> Void) async -> Bool {
+    let event = TrackLoadEvent(track: track, queue: queue, startIndex: startIndex)
+    if await browserManager.config.awaitTrackLoadHandler(event: event) { return true }
+    await defaultBehavior()
+    return false
+  }
+
   public func navigateTrack(track: Track) throws {
     let url = track.url
 
@@ -385,8 +397,19 @@ public class HybridAudioBrowser: HybridAudioBrowserSpec, @unchecked Sendable {
       }
       if let index = existingIndex {
         logger.debug("Queue already from \(parentPath), skipping to index \(index)")
-        try onMainActor {
-          try player?.skipTo(index, playWhenReady: true)
+        let queue: [Track] = onMainActor { player?.tracks ?? [] }
+        Task {
+          await handleLoadAsync(track: track, queue: queue, startIndex: Double(index)) {
+            do {
+              try onMainActor {
+                try player?.skipTo(index, playWhenReady: true)
+              }
+            } catch {
+              // NOTE: because we have a throwing closure here, the thrown error
+              // can't be propogated up. Log it out instead.
+              logger.error("Failed to skip to track at index \(index): \(error)")
+            }
+          }
         }
         return
       }
@@ -396,30 +419,39 @@ public class HybridAudioBrowser: HybridAudioBrowserSpec, @unchecked Sendable {
           // Expand the queue from the contextual URL
           if let expanded = try await browserManager.expandQueueFromContextualUrl(url) {
             let (tracks, startIndex) = expanded
-
-            // Replace queue and start at the selected track (auto-play)
-            await MainActor.run {
-              player?.setQueue(tracks, initialIndex: startIndex, playWhenReady: true, sourcePath: parentPath)
+            await handleLoadAsync(track: track, queue: tracks, startIndex: Double(startIndex)) {
+              // Replace queue and start at the selected track (auto-play)
+              onMainActor {
+                player?.setQueue(tracks, initialIndex: startIndex, playWhenReady: true, sourcePath: parentPath)
+              }
             }
           } else {
             // Fallback: just load the single track (auto-play)
-            await MainActor.run {
-              player?.load(track, playWhenReady: true)
+            await handleLoadAsync(track: track, queue: [track], startIndex: 0) {
+              onMainActor {
+                player?.load(track, playWhenReady: true)
+              }
             }
           }
         } catch {
           logger.error("Error expanding queue: \(error.localizedDescription)")
           // Fallback to single track (auto-play) - playback errors reported via TrackPlayer callbacks
-          await MainActor.run {
-            player?.load(track, playWhenReady: true)
+          await handleLoadAsync(track: track, queue: [track], startIndex: 0) {
+            onMainActor {
+              player?.load(track, playWhenReady: true)
+            }
           }
         }
       }
     }
     // If track has src, it's playable - load and auto-play
     else if track.src != nil {
-      onMainActor {
-        player?.load(track, playWhenReady: true)
+      Task {
+        await handleLoadAsync(track: track, queue: [track], startIndex: 0) {
+          onMainActor {
+            player?.load(track, playWhenReady: true)
+          }
+        }
       }
     }
     // If track has url, it's browsable - navigate to it

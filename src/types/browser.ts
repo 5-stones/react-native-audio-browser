@@ -1,6 +1,26 @@
 import type { NavigationError } from '../features/errors'
 import type { ResolvedTrack, Track } from './browser-nodes.ts'
 
+/**
+ * Event fired when a track is about to be loaded via navigateTrack.
+ */
+export interface TrackLoadEvent {
+  /** The track that will be loaded */
+  track: Track
+  /** The resolved queue of tracks */
+  queue: Track[]
+  /** The index of the track in the queue */
+  startIndex: number
+}
+
+/**
+ * Callback for handling track load events.
+ * When set on BrowserConfiguration, navigateTrack() will call this handler
+ * instead of auto-loading/playing the track. The native side awaits completion
+ * before proceeding (e.g., showing Now Playing in CarPlay).
+ */
+export type HandleTrackLoadCallback = (event: TrackLoadEvent) => Promise<void>
+
 export type BrowserSourceCallbackParam = {
   path: string
   routeParams?: Record<string, string>
@@ -649,6 +669,15 @@ export type BrowserConfiguration = {
    * @default false
    */
   singleTrack?: boolean
+
+  /**
+   * Custom handler for track load events.
+   * When set, navigateTrack() will call this handler instead of auto-loading/playing the track.
+   * Pass undefined to restore default behavior.
+   *
+   * @param event - The track load event containing the track, queue, and startIndex
+   */
+  handleTrackLoad?: HandleTrackLoadCallback
 
   /**
    * Show an offline error message in external controllers (Android Auto, Wear OS, Automotive)

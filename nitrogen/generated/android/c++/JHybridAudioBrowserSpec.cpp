@@ -55,6 +55,8 @@ namespace margelo::nitro::audiobrowser { struct BrowserSourceCallbackParam; }
 namespace margelo::nitro::audiobrowser { struct SearchParams; }
 // Forward declaration of `SearchMode` to properly resolve imports.
 namespace margelo::nitro::audiobrowser { enum class SearchMode; }
+// Forward declaration of `TrackLoadEvent` to properly resolve imports.
+namespace margelo::nitro::audiobrowser { struct TrackLoadEvent; }
 // Forward declaration of `CarPlayNowPlayingButton` to properly resolve imports.
 namespace margelo::nitro::audiobrowser { enum class CarPlayNowPlayingButton; }
 // Forward declaration of `FormatNavigationErrorParams` to properly resolve imports.
@@ -246,6 +248,10 @@ namespace margelo::nitro::audiobrowser { struct NowPlayingUpdate; }
 #include "JSearchParams.hpp"
 #include "SearchMode.hpp"
 #include "JSearchMode.hpp"
+#include "TrackLoadEvent.hpp"
+#include "JFunc_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____TrackLoadEvent.hpp"
+#include <NitroModules/JUnit.hpp>
+#include "JTrackLoadEvent.hpp"
 #include "CarPlayNowPlayingButton.hpp"
 #include "JCarPlayNowPlayingButton.hpp"
 #include "FormatNavigationErrorParams.hpp"
@@ -370,7 +376,6 @@ namespace margelo::nitro::audiobrowser { struct NowPlayingUpdate; }
 #include "JBatteryOptimizationStatusChangedEvent.hpp"
 #include "BatteryOptimizationStatus.hpp"
 #include "JBatteryOptimizationStatus.hpp"
-#include <NitroModules/JUnit.hpp>
 #include "UpdateOptions.hpp"
 #include "JUpdateOptions.hpp"
 #include "AndroidUpdateOptions.hpp"

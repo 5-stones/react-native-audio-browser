@@ -195,6 +195,7 @@ function toNativeConfig(
       config.search
     ),
     singleTrack: config.singleTrack,
+    handleTrackLoad: config.handleTrackLoad,
     androidControllerOfflineError: config.androidControllerOfflineError,
     carPlayUpNextButton: config.carPlayUpNextButton,
     carPlayNowPlayingButtons: config.carPlayNowPlayingButtons,
