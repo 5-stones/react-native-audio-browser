@@ -17,6 +17,9 @@ import os.log
 @MainActor
 @objc(RNABCarPlayController)
 public final class RNABCarPlayController: NSObject {
+  // Force the linker to include RNABMediaIntentHandler so NSClassFromString can find it
+  @objc public static let mediaIntentHandlerClass: AnyClass = RNABMediaIntentHandler.self
+
   private let logger = Logger(subsystem: "com.audiobrowser", category: "CarPlayController")
 
   private let interfaceController: CPInterfaceController
@@ -229,12 +232,8 @@ public final class RNABCarPlayController: NSObject {
 
     let maxTabs = CPTabBarTemplate.maximumTabCount
 
-    // Reserve one slot for search if configured
-    let hasSearch = config.hasSearch
-    let maxContentTabs = hasSearch ? maxTabs - 1 : maxTabs
-
     // Create tab templates synchronously (empty shells) - don't block on content loading
-    let tabTemplates: [CPListTemplate] = tabs.prefix(maxContentTabs).map { tab in
+    let tabTemplates: [CPListTemplate] = tabs.prefix(maxTabs).map { tab in
       createTabTemplate(for: tab)
     }
 
@@ -299,9 +298,9 @@ public final class RNABCarPlayController: NSObject {
   ) -> CPListTemplate {
     let template = CPListTemplate(
       title: resolvedTrack.title,
-      sections: createSections(from: resolvedTrack),
+      sections: [],
     )
-
+    updateTemplate(template, with: resolvedTrack)
     template.userInfo = ["path": path] as [String: Any]
 
     return template
@@ -310,6 +309,29 @@ public final class RNABCarPlayController: NSObject {
   /// Finds the path associated with a template, if any
   private func getPath(from template: CPTemplate) -> String? {
     (template.userInfo as? [String: Any])?["path"] as? String
+  }
+
+  /// Updates a template's sections and assistant cell from resolved content.
+  private func updateTemplate(_ template: CPListTemplate, with resolvedTrack: ResolvedTrack) {
+    let sections = createSections(from: resolvedTrack)
+    template.updateSections(sections)
+    configureAssistantCell(on: template, from: resolvedTrack)
+  }
+
+  /// Configures the assistant cell ("Ask Siri to Play Audio") on a template
+  /// based on the `carPlaySiriListButton` property of the resolved content.
+  private func configureAssistantCell(on template: CPListTemplate, from resolvedTrack: ResolvedTrack) {
+    guard #available(iOS 15.4, *) else { return }
+    guard let position = resolvedTrack.carPlaySiriListButton else {
+      template.assistantCellConfiguration = nil
+      return
+    }
+    let cellPosition: CPListItem.AssistantCellPosition = position == .top ? .top : .bottom
+    template.assistantCellConfiguration = CPAssistantCellConfiguration(
+      position: cellPosition,
+      visibility: .always,
+      assistantAction: .playMedia
+    )
   }
 
   private func createSections(from resolvedTrack: ResolvedTrack) -> [CPListSection] {
@@ -429,8 +451,7 @@ public final class RNABCarPlayController: NSObject {
 
     do {
       let resolved = try await audioBrowser.browserManager.resolve(path, useCache: true)
-      let sections = createSections(from: resolved)
-      template.updateSections(sections)
+      updateTemplate(template, with: resolved)
     } catch {
       logger.error("Failed to load content for \(path): \(error.localizedDescription)")
     }
@@ -833,8 +854,7 @@ public final class RNABCarPlayController: NSObject {
         else { continue }
 
         logger.info("Refreshing tab template for path: \(path)")
-        let sections = createSections(from: content)
-        listTemplate.updateSections(sections)
+        updateTemplate(listTemplate, with: content)
       }
     }
 
@@ -845,8 +865,7 @@ public final class RNABCarPlayController: NSObject {
        templatePath == path
     {
       logger.info("Refreshing top template for path: \(path)")
-      let sections = createSections(from: content)
-      topTemplate.updateSections(sections)
+      updateTemplate(topTemplate, with: content)
     }
   }
 

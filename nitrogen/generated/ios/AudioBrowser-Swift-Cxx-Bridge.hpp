@@ -34,6 +34,8 @@ namespace margelo::nitro::audiobrowser { struct BrowseError; }
 namespace margelo::nitro::audiobrowser { struct BrowserSourceCallbackParam; }
 // Forward declaration of `CarPlayNowPlayingButton` to properly resolve imports.
 namespace margelo::nitro::audiobrowser { enum class CarPlayNowPlayingButton; }
+// Forward declaration of `CarPlaySiriListButtonPosition` to properly resolve imports.
+namespace margelo::nitro::audiobrowser { enum class CarPlaySiriListButtonPosition; }
 // Forward declaration of `ChapterMetadata` to properly resolve imports.
 namespace margelo::nitro::audiobrowser { struct ChapterMetadata; }
 // Forward declaration of `EqualizerSettings` to properly resolve imports.
@@ -189,6 +191,7 @@ namespace AudioBrowser { class HybridAudioBrowserSpec_cxx; }
 #include "BrowseError.hpp"
 #include "BrowserSourceCallbackParam.hpp"
 #include "CarPlayNowPlayingButton.hpp"
+#include "CarPlaySiriListButtonPosition.hpp"
 #include "ChapterMetadata.hpp"
 #include "EqualizerSettings.hpp"
 #include "FavoriteChangedEvent.hpp"
@@ -486,6 +489,21 @@ namespace margelo::nitro::audiobrowser::bridge::swift {
   Func_void_std__exception_ptr create_Func_void_std__exception_ptr(void* NON_NULL swiftClosureWrapper) noexcept;
   inline Func_void_std__exception_ptr_Wrapper wrap_Func_void_std__exception_ptr(Func_void_std__exception_ptr value) noexcept {
     return Func_void_std__exception_ptr_Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::optional<CarPlaySiriListButtonPosition>
+  /**
+   * Specialized version of `std::optional<CarPlaySiriListButtonPosition>`.
+   */
+  using std__optional_CarPlaySiriListButtonPosition_ = std::optional<CarPlaySiriListButtonPosition>;
+  inline std::optional<CarPlaySiriListButtonPosition> create_std__optional_CarPlaySiriListButtonPosition_(const CarPlaySiriListButtonPosition& value) noexcept {
+    return std::optional<CarPlaySiriListButtonPosition>(value);
+  }
+  inline bool has_value_std__optional_CarPlaySiriListButtonPosition_(const std::optional<CarPlaySiriListButtonPosition>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline CarPlaySiriListButtonPosition get_std__optional_CarPlaySiriListButtonPosition_(const std::optional<CarPlaySiriListButtonPosition>& optional) noexcept {
+    return optional.value();
   }
   
   // pragma MARK: std::optional<ResolvedTrack>

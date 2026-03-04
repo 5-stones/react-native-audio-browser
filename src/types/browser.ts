@@ -729,6 +729,13 @@ export type CarPlayNowPlayingButton =
   | 'playback-rate'
 
 /**
+ * Position of the "Ask Siri to Play Audio" assistant cell on a CarPlay list template.
+ *
+ * @platform ios
+ */
+export type CarPlaySiriListButtonPosition = 'top' | 'bottom'
+
+/**
  * Formatted navigation error for display in UI.
  * Used by CarPlay/Android Auto and available via `useFormattedNavigationError()` for app UI.
  */

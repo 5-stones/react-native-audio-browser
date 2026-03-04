@@ -22,6 +22,8 @@ namespace margelo::nitro::audiobrowser { enum class HttpMethod; }
 namespace margelo::nitro::audiobrowser { enum class TrackStyle; }
 // Forward declaration of `ResolvedTrack` to properly resolve imports.
 namespace margelo::nitro::audiobrowser { struct ResolvedTrack; }
+// Forward declaration of `CarPlaySiriListButtonPosition` to properly resolve imports.
+namespace margelo::nitro::audiobrowser { enum class CarPlaySiriListButtonPosition; }
 // Forward declaration of `NavigationErrorEvent` to properly resolve imports.
 namespace margelo::nitro::audiobrowser { struct NavigationErrorEvent; }
 // Forward declaration of `NavigationError` to properly resolve imports.
@@ -189,6 +191,7 @@ namespace margelo::nitro::audiobrowser { struct NowPlayingUpdate; }
 #include "TrackStyle.hpp"
 #include <functional>
 #include "ResolvedTrack.hpp"
+#include "CarPlaySiriListButtonPosition.hpp"
 #include "NavigationErrorEvent.hpp"
 #include "NavigationError.hpp"
 #include "NavigationErrorType.hpp"

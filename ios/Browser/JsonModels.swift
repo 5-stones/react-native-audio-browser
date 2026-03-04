@@ -21,6 +21,7 @@ struct JsonResolvedTrack: Codable {
   let childrenStyle: String?
   let groupTitle: String?
   let live: Bool?
+  let carPlaySiriListButton: String?
 
   init(
     url: String,
@@ -38,6 +39,7 @@ struct JsonResolvedTrack: Codable {
     childrenStyle: String? = nil,
     groupTitle: String? = nil,
     live: Bool? = nil,
+    carPlaySiriListButton: String? = nil,
   ) {
     self.url = url
     self.title = title
@@ -54,6 +56,7 @@ struct JsonResolvedTrack: Codable {
     self.childrenStyle = childrenStyle
     self.groupTitle = groupTitle
     self.live = live
+    self.carPlaySiriListButton = carPlaySiriListButton
   }
 }
 
@@ -120,6 +123,7 @@ extension JsonResolvedTrack {
     ResolvedTrack(
       url: url,
       children: children?.map { $0.toNitro() },
+      carPlaySiriListButton: carPlaySiriListButton.flatMap { CarPlaySiriListButtonPosition(fromString: $0) },
       src: src,
       artwork: artwork,
       artworkSource: nil,

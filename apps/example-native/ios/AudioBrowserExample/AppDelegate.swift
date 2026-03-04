@@ -1,4 +1,5 @@
 import CarPlay
+import Intents
 import UIKit
 import React
 import React_RCTAppDelegate
@@ -56,6 +57,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   /// Mark React Native as started (called from PhoneSceneDelegate)
   func markReactNativeStarted() {
     reactNativeStarted = true
+  }
+
+  // MARK: - Siri Media Intent
+
+  // Called when the Intents Extension returns .handleInApp
+  func application(
+    _ application: UIApplication,
+    handle intent: INIntent,
+    completionHandler: @escaping (INIntentResponse) -> Void
+  ) {
+    RNABAudioBrowser.handleMediaIntent(intent, completionHandler: completionHandler)
   }
 
   // MARK: - CarPlay Scene Configuration

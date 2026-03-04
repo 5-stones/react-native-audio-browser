@@ -1,5 +1,6 @@
 package com.audiobrowser.browser
 
+import com.margelo.nitro.audiobrowser.CarPlaySiriListButtonPosition
 import com.margelo.nitro.audiobrowser.ResolvedTrack
 import com.margelo.nitro.audiobrowser.Track
 import com.margelo.nitro.audiobrowser.TrackStyle
@@ -27,6 +28,7 @@ data class JsonResolvedTrack(
   val childrenStyle: String? = null,
   val groupTitle: String? = null,
   val live: Boolean? = null,
+  val carPlaySiriListButton: String? = null,
 )
 
 @Serializable
@@ -57,10 +59,19 @@ private fun String?.toTrackStyle(): TrackStyle? {
   }
 }
 
+private fun String?.toCarPlaySiriListButtonPosition(): CarPlaySiriListButtonPosition? {
+  return when (this?.lowercase()) {
+    "top" -> CarPlaySiriListButtonPosition.TOP
+    "bottom" -> CarPlaySiriListButtonPosition.BOTTOM
+    else -> null
+  }
+}
+
 fun JsonResolvedTrack.toNitro(): ResolvedTrack {
   return ResolvedTrack(
     url = url,
     children = children?.map { it.toNitro() }?.toTypedArray(),
+    carPlaySiriListButton = carPlaySiriListButton.toCarPlaySiriListButtonPosition(),
     title = title,
     subtitle = subtitle,
     artwork = artwork,

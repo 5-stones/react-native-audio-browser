@@ -85,5 +85,17 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>NSSiriUsageDescription</key>
+	<string>Siri is used for voice-controlled media playback via CarPlay.</string>
+	<key>NSAppleMusicUsageDescription</key>
+	<string>This app plays audio content.</string>
+	<key>INSupportedMediaCategories</key>
+	<array>
+		<string>INMediaCategoryMusic</string>
+	</array>
+	<key>INIntentsSupported</key>
+	<array>
+		<string>INPlayMediaIntent</string>
+	</array>
 </dict>
 </plist>

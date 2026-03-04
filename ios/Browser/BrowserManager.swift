@@ -193,6 +193,7 @@ final class BrowserManager: @unchecked Sendable {
     return ResolvedTrack(
       url: resolvedTrack.url,
       children: hydratedChildren,
+      carPlaySiriListButton: resolvedTrack.carPlaySiriListButton,
       src: resolvedTrack.src,
       artwork: resolvedTrack.artwork,
       artworkSource: resolvedTrack.artworkSource,
@@ -336,6 +337,7 @@ final class BrowserManager: @unchecked Sendable {
       return ResolvedTrack(
         url: resolvedTrack.url,
         children: transformedChildren,
+        carPlaySiriListButton: resolvedTrack.carPlaySiriListButton,
         src: resolvedTrack.src,
         artwork: resolvedTrack.artwork,
         artworkSource: resolvedTrack.artworkSource,
@@ -573,6 +575,7 @@ final class BrowserManager: @unchecked Sendable {
       return ResolvedTrack(
         url: BrowserPathHelper.createSearchPath(query),
         children: hydratedResults,
+        carPlaySiriListButton: nil,
         src: nil,
         artwork: nil,
         artworkSource: nil,
@@ -637,6 +640,7 @@ final class BrowserManager: @unchecked Sendable {
     return ResolvedTrack(
       url: BrowserPathHelper.createSearchPath(query),
       children: hydratedResults,
+      carPlaySiriListButton: nil,
       src: nil,
       artwork: nil,
       artworkSource: nil,

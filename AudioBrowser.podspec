@@ -41,5 +41,5 @@ Pod::Spec.new do |s|
   install_modules_dependencies(s)
 
   # CarPlay framework for CarPlay support
-  s.frameworks = 'CarPlay'
+  s.frameworks = 'CarPlay', 'Intents'
 end

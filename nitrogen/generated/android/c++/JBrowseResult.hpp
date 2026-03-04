@@ -26,6 +26,8 @@
 #include <unordered_map>
 #include "TrackStyle.hpp"
 #include "JTrackStyle.hpp"
+#include "CarPlaySiriListButtonPosition.hpp"
+#include "JCarPlaySiriListButtonPosition.hpp"
 #include "JBrowseError.hpp"
 
 namespace margelo::nitro::audiobrowser {

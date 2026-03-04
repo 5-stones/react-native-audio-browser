@@ -194,6 +194,7 @@ const configuration: BrowserConfiguration = {
     '/library': {
       url: '/library',
       title: 'Library',
+      carPlaySiriListButton: 'top',
       children: [
         {
           url: '/library/playlists',

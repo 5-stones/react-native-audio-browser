@@ -30,6 +30,8 @@
 
 // Forward declaration of `Track` to properly resolve imports.
 namespace margelo::nitro::audiobrowser { struct Track; }
+// Forward declaration of `CarPlaySiriListButtonPosition` to properly resolve imports.
+namespace margelo::nitro::audiobrowser { enum class CarPlaySiriListButtonPosition; }
 // Forward declaration of `ImageSource` to properly resolve imports.
 namespace margelo::nitro::audiobrowser { struct ImageSource; }
 // Forward declaration of `TrackStyle` to properly resolve imports.
@@ -39,6 +41,7 @@ namespace margelo::nitro::audiobrowser { enum class TrackStyle; }
 #include "Track.hpp"
 #include <vector>
 #include <optional>
+#include "CarPlaySiriListButtonPosition.hpp"
 #include "ImageSource.hpp"
 #include "TrackStyle.hpp"
 
@@ -51,6 +54,7 @@ namespace margelo::nitro::audiobrowser {
   public:
     std::string url     SWIFT_PRIVATE;
     std::optional<std::vector<Track>> children     SWIFT_PRIVATE;
+    std::optional<CarPlaySiriListButtonPosition> carPlaySiriListButton     SWIFT_PRIVATE;
     std::optional<std::string> src     SWIFT_PRIVATE;
     std::optional<std::string> artwork     SWIFT_PRIVATE;
     std::optional<ImageSource> artworkSource     SWIFT_PRIVATE;
@@ -70,7 +74,7 @@ namespace margelo::nitro::audiobrowser {
 
   public:
     ResolvedTrack() = default;
-    explicit ResolvedTrack(std::string url, std::optional<std::vector<Track>> children, std::optional<std::string> src, std::optional<std::string> artwork, std::optional<ImageSource> artworkSource, std::optional<bool> artworkCarPlayTinted, std::string title, std::optional<std::string> subtitle, std::optional<std::string> artist, std::optional<std::string> album, std::optional<std::string> description, std::optional<std::string> genre, std::optional<double> duration, std::optional<TrackStyle> style, std::optional<TrackStyle> childrenStyle, std::optional<bool> favorited, std::optional<std::string> groupTitle, std::optional<bool> live): url(url), children(children), src(src), artwork(artwork), artworkSource(artworkSource), artworkCarPlayTinted(artworkCarPlayTinted), title(title), subtitle(subtitle), artist(artist), album(album), description(description), genre(genre), duration(duration), style(style), childrenStyle(childrenStyle), favorited(favorited), groupTitle(groupTitle), live(live) {}
+    explicit ResolvedTrack(std::string url, std::optional<std::vector<Track>> children, std::optional<CarPlaySiriListButtonPosition> carPlaySiriListButton, std::optional<std::string> src, std::optional<std::string> artwork, std::optional<ImageSource> artworkSource, std::optional<bool> artworkCarPlayTinted, std::string title, std::optional<std::string> subtitle, std::optional<std::string> artist, std::optional<std::string> album, std::optional<std::string> description, std::optional<std::string> genre, std::optional<double> duration, std::optional<TrackStyle> style, std::optional<TrackStyle> childrenStyle, std::optional<bool> favorited, std::optional<std::string> groupTitle, std::optional<bool> live): url(url), children(children), carPlaySiriListButton(carPlaySiriListButton), src(src), artwork(artwork), artworkSource(artworkSource), artworkCarPlayTinted(artworkCarPlayTinted), title(title), subtitle(subtitle), artist(artist), album(album), description(description), genre(genre), duration(duration), style(style), childrenStyle(childrenStyle), favorited(favorited), groupTitle(groupTitle), live(live) {}
 
   public:
     friend bool operator==(const ResolvedTrack& lhs, const ResolvedTrack& rhs) = default;
@@ -88,6 +92,7 @@ namespace margelo::nitro {
       return margelo::nitro::audiobrowser::ResolvedTrack(
         JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "url"))),
         JSIConverter<std::optional<std::vector<margelo::nitro::audiobrowser::Track>>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "children"))),
+        JSIConverter<std::optional<margelo::nitro::audiobrowser::CarPlaySiriListButtonPosition>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "carPlaySiriListButton"))),
         JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "src"))),
         JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "artwork"))),
         JSIConverter<std::optional<margelo::nitro::audiobrowser::ImageSource>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "artworkSource"))),
@@ -110,6 +115,7 @@ namespace margelo::nitro {
       jsi::Object obj(runtime);
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "url"), JSIConverter<std::string>::toJSI(runtime, arg.url));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "children"), JSIConverter<std::optional<std::vector<margelo::nitro::audiobrowser::Track>>>::toJSI(runtime, arg.children));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "carPlaySiriListButton"), JSIConverter<std::optional<margelo::nitro::audiobrowser::CarPlaySiriListButtonPosition>>::toJSI(runtime, arg.carPlaySiriListButton));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "src"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.src));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "artwork"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.artwork));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "artworkSource"), JSIConverter<std::optional<margelo::nitro::audiobrowser::ImageSource>>::toJSI(runtime, arg.artworkSource));
@@ -138,6 +144,7 @@ namespace margelo::nitro {
       }
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "url")))) return false;
       if (!JSIConverter<std::optional<std::vector<margelo::nitro::audiobrowser::Track>>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "children")))) return false;
+      if (!JSIConverter<std::optional<margelo::nitro::audiobrowser::CarPlaySiriListButtonPosition>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "carPlaySiriListButton")))) return false;
       if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "src")))) return false;
       if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "artwork")))) return false;
       if (!JSIConverter<std::optional<margelo::nitro::audiobrowser::ImageSource>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "artworkSource")))) return false;

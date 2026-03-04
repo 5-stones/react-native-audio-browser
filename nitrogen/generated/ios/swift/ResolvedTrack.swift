@@ -18,7 +18,7 @@ public extension ResolvedTrack {
   /**
    * Create a new instance of `ResolvedTrack`.
    */
-  init(url: String, children: [Track]?, src: String?, artwork: String?, artworkSource: ImageSource?, artworkCarPlayTinted: Bool?, title: String, subtitle: String?, artist: String?, album: String?, description: String?, genre: String?, duration: Double?, style: TrackStyle?, childrenStyle: TrackStyle?, favorited: Bool?, groupTitle: String?, live: Bool?) {
+  init(url: String, children: [Track]?, carPlaySiriListButton: CarPlaySiriListButtonPosition?, src: String?, artwork: String?, artworkSource: ImageSource?, artworkCarPlayTinted: Bool?, title: String, subtitle: String?, artist: String?, album: String?, description: String?, genre: String?, duration: Double?, style: TrackStyle?, childrenStyle: TrackStyle?, favorited: Bool?, groupTitle: String?, live: Bool?) {
     self.init(std.string(url), { () -> bridge.std__optional_std__vector_Track__ in
       if let __unwrappedValue = children {
         return bridge.create_std__optional_std__vector_Track__({ () -> bridge.std__vector_Track_ in
@@ -28,6 +28,12 @@ public extension ResolvedTrack {
           }
           return __vector
         }())
+      } else {
+        return .init()
+      }
+    }(), { () -> bridge.std__optional_CarPlaySiriListButtonPosition_ in
+      if let __unwrappedValue = carPlaySiriListButton {
+        return bridge.create_std__optional_CarPlaySiriListButtonPosition_(__unwrappedValue)
       } else {
         return .init()
       }
@@ -139,6 +145,11 @@ public extension ResolvedTrack {
         return nil
       }
     }()
+  }
+  
+  @inline(__always)
+  var carPlaySiriListButton: CarPlaySiriListButtonPosition? {
+    return self.__carPlaySiriListButton.value
   }
   
   @inline(__always)

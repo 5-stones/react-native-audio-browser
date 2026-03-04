@@ -1266,6 +1266,33 @@ extension HybridAudioBrowser: TrackPlayerCallbacks {
     }
   }
 
+  /// Handles an INPlayMediaIntent by searching for the given term and starting playback.
+  ///
+  /// Host apps should call this from their `INPlayMediaIntentHandling` implementation.
+  /// Uses the browser's search route to find tracks, then queues and plays them.
+  ///
+  /// - Parameters:
+  ///   - searchTerm: The search query from Siri.
+  ///   - completion: Called with `true` if tracks were found and queued, `false` otherwise.
+  public func handlePlayMediaIntent(searchTerm: String, completion: @escaping @Sendable (Bool) -> Void) {
+    Task {
+      do {
+        let resolved = try await self.browserManager.search(searchTerm)
+        guard let tracks = resolved.children, !tracks.isEmpty else {
+          completion(false)
+          return
+        }
+        await MainActor.run {
+          self.getPlayer()?.setQueue(tracks, initialIndex: 0, playWhenReady: true)
+        }
+        completion(true)
+      } catch {
+        self.logger.error("handlePlayMediaIntent failed: \(error.localizedDescription)")
+        completion(false)
+      }
+    }
+  }
+
   public func remoteLike() {
     if let handler = handleRemoteLike {
       handler()

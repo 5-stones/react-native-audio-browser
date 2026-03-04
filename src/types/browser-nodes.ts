@@ -1,4 +1,4 @@
-import type { HttpMethod } from './browser'
+import type { CarPlaySiriListButtonPosition, HttpMethod } from './browser'
 
 export type TrackStyle = 'list' | 'grid'
 
@@ -171,4 +171,16 @@ export interface ResolvedTrack extends Track {
    * Undefined for leaf tracks (individual songs without children).
    */
   children?: Track[]
+
+  /**
+   * Shows the "Ask Siri to Play Audio" assistant cell on the CarPlay list template
+   * for this content. Requires an Intents Extension to be configured in the app.
+   *
+   * - `'top'`: Shows at the top of the list
+   * - `'bottom'`: Shows at the bottom of the list
+   *
+   * @see {@link https://audiobrowser.dev/guide/carplay#siri-voice-search | CarPlay Siri Voice Search guide}
+   * @platform ios
+   */
+  carPlaySiriListButton?: CarPlaySiriListButtonPosition
 }

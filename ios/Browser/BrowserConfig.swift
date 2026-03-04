@@ -72,12 +72,6 @@ struct BrowserConfig {
     formatNavigationError = config.formatNavigationError
   }
 
-  /// Returns true if search functionality is configured (either callback or config).
-  var hasSearch: Bool {
-    guard let routes else { return false }
-    let searchEntry = routes.first { $0.path == BrowserManager.searchRoutePath }
-    return searchEntry?.searchCallback != nil || searchEntry?.searchConfig != nil
-  }
 }
 
 // MARK: - NativeRouteEntry + RouteEntry conformance
