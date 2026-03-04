@@ -385,8 +385,8 @@ public class HybridAudioBrowser: HybridAudioBrowserSpec, @unchecked Sendable {
       }
       if let index = existingIndex {
         logger.debug("Queue already from \(parentPath), skipping to index \(index)")
-        onMainActor {
-          try? player?.skipTo(index, playWhenReady: true)
+        try onMainActor {
+          try player?.skipTo(index, playWhenReady: true)
         }
         return
       }
