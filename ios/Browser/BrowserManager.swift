@@ -183,6 +183,7 @@ final class BrowserManager: @unchecked Sendable {
       favorited: isFavorited,
       groupTitle: track.groupTitle,
       live: track.live,
+      imageRow: track.imageRow,
     )
   }
 
@@ -210,6 +211,7 @@ final class BrowserManager: @unchecked Sendable {
       favorited: resolvedTrack.favorited,
       groupTitle: resolvedTrack.groupTitle,
       live: resolvedTrack.live,
+      imageRow: resolvedTrack.imageRow,
     )
   }
 
@@ -354,6 +356,7 @@ final class BrowserManager: @unchecked Sendable {
         favorited: resolvedTrack.favorited,
         groupTitle: resolvedTrack.groupTitle,
         live: resolvedTrack.live,
+        imageRow: resolvedTrack.imageRow,
       )
     }
 
@@ -528,6 +531,7 @@ final class BrowserManager: @unchecked Sendable {
           favorited: track.favorited,
           groupTitle: track.groupTitle,
           live: track.live,
+          imageRow: track.imageRow,
         )
       }
 
@@ -555,6 +559,63 @@ final class BrowserManager: @unchecked Sendable {
             favorited: transformedTrack.favorited,
             groupTitle: transformedTrack.groupTitle,
             live: transformedTrack.live,
+            imageRow: transformedTrack.imageRow,
+          )
+        }
+
+        // Also resolve artwork for image row items
+        if let imageRowItems = transformedTrack.imageRow {
+          let artworkConfig = routeEntry.artwork ?? config.artwork
+          var resolvedItems: [ImageRowItem] = []
+          for item in imageRowItems {
+            // Create a minimal Track to pass to the artwork resolver
+            let itemTrack = Track(
+              url: item.url,
+              src: nil,
+              artwork: item.artwork,
+              artworkSource: nil,
+              artworkCarPlayTinted: nil,
+              title: item.title,
+              subtitle: nil,
+              artist: nil,
+              album: nil,
+              description: nil,
+              genre: nil,
+              duration: nil,
+              style: nil,
+              childrenStyle: nil,
+              favorited: nil,
+              groupTitle: nil,
+              live: nil,
+              imageRow: nil,
+            )
+            let itemImageSource = await resolver(itemTrack, artworkConfig, browseContext)
+            resolvedItems.append(ImageRowItem(
+              url: item.url,
+              artwork: item.artwork,
+              artworkSource: itemImageSource,
+              title: item.title,
+            ))
+          }
+          transformedTrack = Track(
+            url: transformedTrack.url,
+            src: transformedTrack.src,
+            artwork: transformedTrack.artwork,
+            artworkSource: transformedTrack.artworkSource,
+            artworkCarPlayTinted: transformedTrack.artworkCarPlayTinted,
+            title: transformedTrack.title,
+            subtitle: transformedTrack.subtitle,
+            artist: transformedTrack.artist,
+            album: transformedTrack.album,
+            description: transformedTrack.description,
+            genre: transformedTrack.genre,
+            duration: transformedTrack.duration,
+            style: transformedTrack.style,
+            childrenStyle: transformedTrack.childrenStyle,
+            favorited: transformedTrack.favorited,
+            groupTitle: transformedTrack.groupTitle,
+            live: transformedTrack.live,
+            imageRow: resolvedItems,
           )
         }
       }
@@ -592,6 +653,7 @@ final class BrowserManager: @unchecked Sendable {
         favorited: nil,
         groupTitle: nil,
         live: nil,
+        imageRow: nil,
       )
     }
 
@@ -657,6 +719,7 @@ final class BrowserManager: @unchecked Sendable {
       favorited: nil,
       groupTitle: nil,
       live: nil,
+      imageRow: nil,
     )
   }
 

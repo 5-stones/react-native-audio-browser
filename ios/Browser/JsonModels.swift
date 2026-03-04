@@ -4,6 +4,23 @@ import NitroModules
 /// JSON serializable models for parsing API responses.
 /// These will be converted to Nitro types after parsing.
 
+/// JSON model for image row items (horizontal thumbnail row).
+struct JsonImageRowItem: Codable {
+  let url: String?
+  let artwork: String?
+  let title: String
+
+  init(
+    url: String? = nil,
+    artwork: String? = nil,
+    title: String,
+  ) {
+    self.url = url
+    self.artwork = artwork
+    self.title = title
+  }
+}
+
 /// JSON model for resolved track (container with children).
 struct JsonResolvedTrack: Codable {
   let url: String
@@ -76,6 +93,7 @@ struct JsonTrack: Codable {
   let childrenStyle: String?
   let groupTitle: String?
   let live: Bool?
+  let imageRow: [JsonImageRowItem]?
 
   init(
     url: String? = nil,
@@ -92,6 +110,7 @@ struct JsonTrack: Codable {
     childrenStyle: String? = nil,
     groupTitle: String? = nil,
     live: Bool? = nil,
+    imageRow: [JsonImageRowItem]? = nil,
   ) {
     self.url = url
     self.title = title
@@ -107,6 +126,7 @@ struct JsonTrack: Codable {
     self.childrenStyle = childrenStyle
     self.groupTitle = groupTitle
     self.live = live
+    self.imageRow = imageRow
   }
 }
 
@@ -115,6 +135,17 @@ struct JsonTrack: Codable {
 private extension String {
   func toTrackStyle() -> TrackStyle? {
     TrackStyle(fromString: lowercased())
+  }
+}
+
+extension JsonImageRowItem {
+  func toNitro() -> ImageRowItem {
+    ImageRowItem(
+      url: url,
+      artwork: artwork,
+      artworkSource: nil,
+      title: title,
+    )
   }
 }
 
@@ -140,6 +171,7 @@ extension JsonResolvedTrack {
       favorited: nil,
       groupTitle: groupTitle,
       live: live,
+      imageRow: nil,
     )
   }
 }
@@ -164,6 +196,7 @@ extension JsonTrack {
       favorited: nil,
       groupTitle: groupTitle,
       live: live,
+      imageRow: imageRow?.map { $0.toNitro() },
     )
   }
 }

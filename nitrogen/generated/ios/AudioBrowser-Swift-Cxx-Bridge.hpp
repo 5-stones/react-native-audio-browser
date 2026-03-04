@@ -64,6 +64,8 @@ namespace margelo::nitro::audiobrowser { enum class IOSCategory; }
 namespace margelo::nitro::audiobrowser { struct ImageContext; }
 // Forward declaration of `ImageQueryParams` to properly resolve imports.
 namespace margelo::nitro::audiobrowser { struct ImageQueryParams; }
+// Forward declaration of `ImageRowItem` to properly resolve imports.
+namespace margelo::nitro::audiobrowser { struct ImageRowItem; }
 // Forward declaration of `ImageSource` to properly resolve imports.
 namespace margelo::nitro::audiobrowser { struct ImageSource; }
 // Forward declaration of `IosOutputType` to properly resolve imports.
@@ -206,6 +208,7 @@ namespace AudioBrowser { class HybridAudioBrowserSpec_cxx; }
 #include "IOSCategoryPolicy.hpp"
 #include "ImageContext.hpp"
 #include "ImageQueryParams.hpp"
+#include "ImageRowItem.hpp"
 #include "ImageSource.hpp"
 #include "IosOutput.hpp"
 #include "IosOutputType.hpp"
@@ -407,6 +410,32 @@ namespace margelo::nitro::audiobrowser::bridge::swift {
   }
   inline TrackStyle get_std__optional_TrackStyle_(const std::optional<TrackStyle>& optional) noexcept {
     return optional.value();
+  }
+  
+  // pragma MARK: std::optional<std::vector<ImageRowItem>>
+  /**
+   * Specialized version of `std::optional<std::vector<ImageRowItem>>`.
+   */
+  using std__optional_std__vector_ImageRowItem__ = std::optional<std::vector<ImageRowItem>>;
+  inline std::optional<std::vector<ImageRowItem>> create_std__optional_std__vector_ImageRowItem__(const std::vector<ImageRowItem>& value) noexcept {
+    return std::optional<std::vector<ImageRowItem>>(value);
+  }
+  inline bool has_value_std__optional_std__vector_ImageRowItem__(const std::optional<std::vector<ImageRowItem>>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline std::vector<ImageRowItem> get_std__optional_std__vector_ImageRowItem__(const std::optional<std::vector<ImageRowItem>>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::vector<ImageRowItem>
+  /**
+   * Specialized version of `std::vector<ImageRowItem>`.
+   */
+  using std__vector_ImageRowItem_ = std::vector<ImageRowItem>;
+  inline std::vector<ImageRowItem> create_std__vector_ImageRowItem_(size_t size) noexcept {
+    std::vector<ImageRowItem> vector;
+    vector.reserve(size);
+    return vector;
   }
   
   // pragma MARK: std::vector<Track>

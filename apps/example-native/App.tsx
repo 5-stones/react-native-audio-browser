@@ -197,9 +197,20 @@ const configuration: BrowserConfiguration = {
       carPlaySiriListButton: 'top',
       children: [
         {
-          url: '/library/playlists',
           title: 'Radio Playlists',
-          style: 'list'
+          url: '/library/playlists',
+          imageRow: [
+            {
+              title: 'Independent Sounds',
+              url: '/playlist/independent-sounds',
+              artwork: Platform.select({ ios: 'sf:radio' })
+            },
+            {
+              title: 'Energetic Rhythms',
+              url: '/playlist/energetic-rhythms',
+              artwork: Platform.select({ ios: 'sf:bolt.fill' })
+            }
+          ]
         },
         {
           src: 'https://rntp.dev/example/Soul%20Searching.mp3',

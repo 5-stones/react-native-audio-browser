@@ -73,7 +73,10 @@ data class ResolvedTrack(
   val groupTitle: String?,
   @DoNotStrip
   @Keep
-  val live: Boolean?
+  val live: Boolean?,
+  @DoNotStrip
+  @Keep
+  val imageRow: Array<ImageRowItem>?
 ) {
   /* primary constructor */
 
@@ -85,8 +88,8 @@ data class ResolvedTrack(
     @Keep
     @Suppress("unused")
     @JvmStatic
-    private fun fromCpp(url: String, children: Array<Track>?, carPlaySiriListButton: CarPlaySiriListButtonPosition?, src: String?, artwork: String?, artworkSource: ImageSource?, artworkCarPlayTinted: Boolean?, title: String, subtitle: String?, artist: String?, album: String?, description: String?, genre: String?, duration: Double?, style: TrackStyle?, childrenStyle: TrackStyle?, favorited: Boolean?, groupTitle: String?, live: Boolean?): ResolvedTrack {
-      return ResolvedTrack(url, children, carPlaySiriListButton, src, artwork, artworkSource, artworkCarPlayTinted, title, subtitle, artist, album, description, genre, duration, style, childrenStyle, favorited, groupTitle, live)
+    private fun fromCpp(url: String, children: Array<Track>?, carPlaySiriListButton: CarPlaySiriListButtonPosition?, src: String?, artwork: String?, artworkSource: ImageSource?, artworkCarPlayTinted: Boolean?, title: String, subtitle: String?, artist: String?, album: String?, description: String?, genre: String?, duration: Double?, style: TrackStyle?, childrenStyle: TrackStyle?, favorited: Boolean?, groupTitle: String?, live: Boolean?, imageRow: Array<ImageRowItem>?): ResolvedTrack {
+      return ResolvedTrack(url, children, carPlaySiriListButton, src, artwork, artworkSource, artworkCarPlayTinted, title, subtitle, artist, album, description, genre, duration, style, childrenStyle, favorited, groupTitle, live, imageRow)
     }
   }
 }

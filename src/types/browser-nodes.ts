@@ -29,6 +29,17 @@ export interface ImageSource {
 //   children: Track
 // }
 
+export interface ImageRowItem {
+  /** Navigation path. Tapping this thumbnail navigates to this URL. */
+  url?: string
+  /** Artwork URL for the thumbnail image. */
+  artwork?: string
+  /** Output only — populated by the artwork transform pipeline. */
+  readonly artworkSource?: ImageSource
+  /** Title of this item. Used for identification and accessibility. */
+  title: string
+}
+
 export interface Track {
   /**
    * Navigation path. When present, this track is a container (tab, album, playlist, folder)
@@ -144,6 +155,24 @@ export interface Track {
    * in iOS now playing interfaces.
    */
   live?: boolean
+
+  /**
+   * When present, renders this track as a horizontal row of tappable artwork
+   * thumbnails instead of a standard list item.
+   *
+   * - Track.title → row header text
+   * - Track.url → navigated when header is tapped (optional)
+   * - Each ImageRowItem → one thumbnail in the horizontal row
+   *
+   * On CarPlay: maps to CPListImageRowItem. Limits visible images by display
+   * width (~4-5). Excess silently truncated.
+   *
+   * On Android Auto: ignored; the parent Track renders as a regular
+   * browsable item using its own artwork/title/url.
+   *
+   * On app side: consumable by React Native UI for horizontal thumbnail layouts.
+   */
+  imageRow?: ImageRowItem[]
 }
 
 /**

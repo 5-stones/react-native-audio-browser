@@ -26,6 +26,8 @@
 #include <unordered_map>
 #include "TrackStyle.hpp"
 #include "JTrackStyle.hpp"
+#include "ImageRowItem.hpp"
+#include "JImageRowItem.hpp"
 #include "CarPlaySiriListButtonPosition.hpp"
 #include "JCarPlaySiriListButtonPosition.hpp"
 

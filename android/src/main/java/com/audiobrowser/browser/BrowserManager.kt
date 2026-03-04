@@ -163,6 +163,7 @@ class BrowserManager {
       favorited = true,
       groupTitle = track.groupTitle,
       live = track.live,
+      imageRow = track.imageRow,
     )
   }
 
@@ -759,6 +760,7 @@ class BrowserManager {
           favorited = null,
           groupTitle = null,
           live = null,
+          imageRow = null,
         )
 
       // Cache search results for getCachedSearchResults()
@@ -797,6 +799,7 @@ class BrowserManager {
           favorited = null,
           groupTitle = null,
           live = null,
+          imageRow = null,
         )
 
       return emptySearchResult

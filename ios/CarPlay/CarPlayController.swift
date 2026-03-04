@@ -356,7 +356,12 @@ public final class RNABCarPlayController: NSObject {
     // Ungrouped items first
     if let ungrouped = groups[nil], !ungrouped.isEmpty {
       let availableSlots = maxTotalItems - totalItemCount
-      let items = ungrouped.prefix(availableSlots).map { createListItem(for: $0) }
+      let items: [CPListTemplateItem] = ungrouped.prefix(availableSlots).map { track in
+        if track.imageRow != nil {
+          return createImageRowItem(for: track)
+        }
+        return createListItem(for: track)
+      }
       if !items.isEmpty {
         sections.append(CPListSection(items: items))
         totalItemCount += items.count
@@ -370,7 +375,12 @@ public final class RNABCarPlayController: NSObject {
       guard groupTitle != nil else { continue }
 
       let availableSlots = maxTotalItems - totalItemCount
-      let items = tracks.prefix(availableSlots).map { createListItem(for: $0) }
+      let items: [CPListTemplateItem] = tracks.prefix(availableSlots).map { track in
+        if track.imageRow != nil {
+          return createImageRowItem(for: track)
+        }
+        return createListItem(for: track)
+      }
       if !items.isEmpty {
         sections.append(CPListSection(items: items, header: groupTitle, sectionIndexTitle: nil))
         totalItemCount += items.count
@@ -415,13 +425,7 @@ public final class RNABCarPlayController: NSObject {
     }
 
     // Load artwork with size context for proper CDN optimization
-    // Support SF Symbols via "sf:" prefix (e.g., "sf:heart.fill")
-    if let artwork = track.artwork, artwork.hasPrefix("sf:") {
-      let symbolName = String(artwork.dropFirst(3))
-      if let image = sfSymbolImageForListItem(symbolName) {
-        item.setImage(image)
-      }
-    } else if track.artwork != nil || track.artworkSource != nil {
+    if track.artwork != nil || track.artworkSource != nil {
       // Set empty placeholder to reserve space while loading
       item.setImage(placeholderImage)
       loadArtwork(for: track, size: CPListItem.maximumImageSize) { [weak item] image in
@@ -437,6 +441,112 @@ public final class RNABCarPlayController: NSObject {
     } else {
       item.handler = { [weak self] _, completion in
         self?.handleItemSelection(track: track, completion: completion)
+      }
+    }
+
+    return item
+  }
+
+  /// Creates a CPListImageRowItem for a track that has an imageRow.
+  /// Renders as a horizontal row of tappable artwork thumbnails with a header title.
+  private func createImageRowItem(for track: Track) -> CPListImageRowItem {
+    guard let imageRowItems = track.imageRow else {
+      fatalError("createImageRowItem called without imageRow")
+    }
+
+    // CPListImageRowItem requires images at init — start with placeholders
+    let maxImages = CPMaximumNumberOfGridImages
+    let visibleItems = Array(imageRowItems.prefix(maxImages))
+    let placeholders = visibleItems.map { _ in placeholderImage ?? UIImage() }
+    let titles = visibleItems.map { $0.title }
+
+    // Use imageTitles variant on iOS 17.4+ to show titles below each thumbnail
+    let item: CPListImageRowItem
+    if #available(iOS 17.4, *) {
+      item = CPListImageRowItem(text: track.title, images: placeholders, imageTitles: titles)
+    } else {
+      item = CPListImageRowItem(text: track.title, images: placeholders)
+    }
+
+    // Store track info for identification
+    item.userInfo = [
+      "url": track.url as Any,
+      "src": track.src as Any,
+      "hasSrc": track.src != nil,
+      "hasUrl": track.url != nil,
+    ]
+
+    // Handler for row header tap → navigate to track.url if present
+    item.handler = { [weak self] _, completion in
+      self?.handleItemSelection(track: track, completion: completion)
+    }
+
+    // Handler for individual image taps
+    item.listImageRowHandler = { [weak self] _, index, completion in
+      guard let self, index < visibleItems.count else {
+        completion()
+        return
+      }
+      let tappedItem = visibleItems[index]
+      // Create a minimal Track to reuse handleItemSelection
+      let itemTrack = Track(
+        url: tappedItem.url,
+        src: nil,
+        artwork: tappedItem.artwork,
+        artworkSource: tappedItem.artworkSource,
+        artworkCarPlayTinted: nil,
+        title: tappedItem.title,
+        subtitle: nil,
+        artist: nil,
+        album: nil,
+        description: nil,
+        genre: nil,
+        duration: nil,
+        style: nil,
+        childrenStyle: nil,
+        favorited: nil,
+        groupTitle: nil,
+        live: nil,
+        imageRow: nil,
+      )
+      self.handleItemSelection(track: itemTrack, completion: completion)
+    }
+
+    // Load artwork for each visible image row item asynchronously
+    for (index, imageRowItem) in visibleItems.enumerated() {
+      guard imageRowItem.artwork != nil || imageRowItem.artworkSource != nil else { continue }
+
+      // Create a minimal Track for the artwork loader
+      let itemTrack = Track(
+        url: imageRowItem.url,
+        src: nil,
+        artwork: imageRowItem.artwork,
+        artworkSource: imageRowItem.artworkSource,
+        artworkCarPlayTinted: nil,
+        title: imageRowItem.title,
+        subtitle: nil,
+        artist: nil,
+        album: nil,
+        description: nil,
+        genre: nil,
+        duration: nil,
+        style: nil,
+        childrenStyle: nil,
+        favorited: nil,
+        groupTitle: nil,
+        live: nil,
+        imageRow: nil,
+      )
+
+      loadArtwork(for: itemTrack, size: CPListImageRowItem.maximumImageSize) { [weak item] image in
+        Task { @MainActor in
+          guard let item, let image else { return }
+          var images = item.gridImages
+          if index < images.count {
+            images[index] = image
+            item.update(images)
+          }
+        }
       }
     }
 
@@ -997,18 +1107,18 @@ public final class RNABCarPlayController: NSObject {
     UIImage(systemName: symbolName)
   }
 
-  /// Creates an SF Symbol image for list items with light/dark mode support
-  private func sfSymbolImageForListItem(_ symbolName: String) -> UIImage? {
-    guard let symbol = UIImage(systemName: symbolName) else { return nil }
+  /// Creates an SF Symbol image rendered at the given canvas size with light/dark support.
+  /// The symbol is centered within the canvas with a subtle background fill.
+  private func sfSymbolImageForSize(_ symbolName: String, canvasSize: CGSize) -> UIImage? {
+    let scale = interfaceController.carTraitCollection.displayScale
+    let symbolPointSize = min(canvasSize.width, canvasSize.height) * 0.45
 
-    let size = symbol.size
-    let scale = symbol.scale
+    let config = UIImage.SymbolConfiguration(pointSize: symbolPointSize, weight: .medium)
+    guard let symbol = UIImage(systemName: symbolName, withConfiguration: config) else { return nil }
 
-    // Create both light and dark bitmap variants
-    let lightImage = renderSymbolToBitmap(symbol, tintColor: .black, size: size, scale: scale)
-    let darkImage = renderSymbolToBitmap(symbol, tintColor: .white, size: size, scale: scale)
+    let lightImage = renderSymbolInCanvas(symbol, tintColor: .black, canvasSize: canvasSize, scale: scale)
+    let darkImage = renderSymbolInCanvas(symbol, tintColor: .white, canvasSize: canvasSize, scale: scale)
 
-    // Combine with UIImageAsset for automatic light/dark switching
     let asset = UIImageAsset()
     asset.register(lightImage, with: UITraitCollection(userInterfaceStyle: .light))
     asset.register(darkImage, with: UITraitCollection(userInterfaceStyle: .dark))
@@ -1016,16 +1126,24 @@ public final class RNABCarPlayController: NSObject {
     return asset.image(with: interfaceController.carTraitCollection)
   }
 
-  /// Renders an SF Symbol to a bitmap with the specified tint color
-  private nonisolated func renderSymbolToBitmap(_ symbol: UIImage, tintColor: UIColor, size: CGSize, scale: CGFloat) -> UIImage {
-    UIGraphicsBeginImageContextWithOptions(size, false, scale)
+  /// Renders an SF Symbol centered in a canvas with a subtle background fill.
+  private nonisolated func renderSymbolInCanvas(_ symbol: UIImage, tintColor: UIColor, canvasSize: CGSize, scale: CGFloat) -> UIImage {
+    UIGraphicsBeginImageContextWithOptions(canvasSize, false, scale)
     defer { UIGraphicsEndImageContext() }
 
+    let bgColor: UIColor = tintColor == .white ? UIColor(white: 0.15, alpha: 1) : UIColor(white: 0.92, alpha: 1)
+    bgColor.setFill()
+    UIRectFill(CGRect(origin: .zero, size: canvasSize))
+
+    let symbolSize = symbol.size
+    let x = (canvasSize.width - symbolSize.width) / 2
+    let y = (canvasSize.height - symbolSize.height) / 2
+
     tintColor.set()
-    symbol.withRenderingMode(.alwaysTemplate).draw(in: CGRect(origin: .zero, size: size))
+    symbol.withRenderingMode(.alwaysTemplate).draw(in: CGRect(x: x, y: y, width: symbolSize.width, height: symbolSize.height))
 
     guard let rendered = UIGraphicsGetImageFromCurrentImageContext() else {
-      return symbol // Fallback to original if rendering fails
+      return symbol
     }
     return rendered.withRenderingMode(.alwaysOriginal)
   }
@@ -1049,9 +1167,16 @@ public final class RNABCarPlayController: NSObject {
   ///   - size: The target size in points (will be multiplied by CarPlay display scale)
   ///   - completion: Called with the loaded image, or nil on failure
   private func loadArtwork(for track: Track, size: CGSize, completion: @escaping @Sendable (UIImage?) -> Void) {
+    // Handle SF Symbols directly — no need to go through the artwork pipeline
+    if let artwork = track.artwork, artwork.hasPrefix("sf:") {
+      let symbolName = String(artwork.dropFirst(3))
+      completion(sfSymbolImageForSize(symbolName, canvasSize: size))
+      return
+    }
+
     guard let browserManager = audioBrowser?.browserManager else {
       // Fall back to direct URL loading
-      loadArtworkDirect(track: track, completion: completion)
+      loadArtworkDirect(track: track, size: size, completion: completion)
       return
     }
 
@@ -1073,13 +1198,13 @@ public final class RNABCarPlayController: NSObject {
           // Check for SF Symbol URI (e.g., "sf:heart.fill")
           if imageSource.uri.hasPrefix("sf:") {
             let symbolName = String(imageSource.uri.dropFirst(3))
-            completion(self.sfSymbolImageForListItem(symbolName))
+            completion(self.sfSymbolImageForSize(symbolName, canvasSize: size))
             return
           }
 
           // Parse URL - skip if invalid
           guard let url = URL(string: imageSource.uri) else {
-            self.loadArtworkDirect(track: track, completion: completion)
+            self.loadArtworkDirect(track: track, size: size, completion: completion)
             return
           }
 
@@ -1124,14 +1249,14 @@ public final class RNABCarPlayController: NSObject {
           }
         } else {
           // No resolved URL - try direct loading as fallback
-          self.loadArtworkDirect(track: track, completion: completion)
+          self.loadArtworkDirect(track: track, size: size, completion: completion)
         }
       }
     }
   }
 
   /// Loads artwork directly from track's artwork URL without transform.
-  private func loadArtworkDirect(track: Track, completion: @escaping @Sendable (UIImage?) -> Void) {
+  private func loadArtworkDirect(track: Track, size: CGSize, completion: @escaping @Sendable (UIImage?) -> Void) {
     guard let artworkUrl = track.artwork ?? track.artworkSource?.uri else {
       completion(nil)
       return
@@ -1140,7 +1265,7 @@ public final class RNABCarPlayController: NSObject {
     // Check for SF Symbol URI (e.g., "sf:heart.fill")
     if artworkUrl.hasPrefix("sf:") {
       let symbolName = String(artworkUrl.dropFirst(3))
-      completion(sfSymbolImageForListItem(symbolName))
+      completion(sfSymbolImageForSize(symbolName, canvasSize: size))
       return
     }
 

@@ -1,6 +1,7 @@
 package com.audiobrowser.browser
 
 import com.margelo.nitro.audiobrowser.CarPlaySiriListButtonPosition
+import com.margelo.nitro.audiobrowser.ImageRowItem
 import com.margelo.nitro.audiobrowser.ResolvedTrack
 import com.margelo.nitro.audiobrowser.Track
 import com.margelo.nitro.audiobrowser.TrackStyle
@@ -10,6 +11,13 @@ import kotlinx.serialization.Serializable
  * JSON serializable models for parsing API responses. These will be converted to Nitro types after
  * parsing.
  */
+@Serializable
+data class JsonImageRowItem(
+  val url: String? = null,
+  val artwork: String? = null,
+  val title: String,
+)
+
 @Serializable
 data class JsonResolvedTrack(
   val url: String,
@@ -48,6 +56,7 @@ data class JsonTrack(
   val childrenStyle: String? = null,
   val groupTitle: String? = null,
   val live: Boolean? = null,
+  val imageRow: List<JsonImageRowItem>? = null,
 )
 
 /** Convert JSON models to Nitro types */
@@ -65,6 +74,15 @@ private fun String?.toCarPlaySiriListButtonPosition(): CarPlaySiriListButtonPosi
     "bottom" -> CarPlaySiriListButtonPosition.BOTTOM
     else -> null
   }
+}
+
+private fun JsonImageRowItem.toNitro(): ImageRowItem {
+  return ImageRowItem(
+    url = url,
+    artwork = artwork,
+    artworkSource = null,
+    title = title,
+  )
 }
 
 fun JsonResolvedTrack.toNitro(): ResolvedTrack {
@@ -88,6 +106,7 @@ fun JsonResolvedTrack.toNitro(): ResolvedTrack {
     favorited = null,
     groupTitle = groupTitle,
     live = live,
+    imageRow = null,
   )
 }
 
@@ -110,5 +129,6 @@ fun JsonTrack.toNitro(): Track {
     favorited = null,
     groupTitle = groupTitle,
     live = live,
+    imageRow = imageRow?.map { it.toNitro() }?.toTypedArray(),
   )
 }

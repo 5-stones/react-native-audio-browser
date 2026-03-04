@@ -798,6 +798,7 @@ public class HybridAudioBrowser: HybridAudioBrowserSpec, @unchecked Sendable {
         favorited: favorited,
         groupTitle: track.groupTitle,
         live: track.live,
+        imageRow: track.imageRow,
       )
       // Update the track in the player's queue so getActiveTrack() returns correct state
       player?.setTrack(at: index, updatedTrack)

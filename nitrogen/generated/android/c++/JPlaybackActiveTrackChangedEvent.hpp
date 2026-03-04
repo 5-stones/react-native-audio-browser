@@ -11,8 +11,10 @@
 #include "PlaybackActiveTrackChangedEvent.hpp"
 
 #include "HttpMethod.hpp"
+#include "ImageRowItem.hpp"
 #include "ImageSource.hpp"
 #include "JHttpMethod.hpp"
+#include "JImageRowItem.hpp"
 #include "JImageSource.hpp"
 #include "JTrack.hpp"
 #include "JTrackStyle.hpp"
@@ -21,6 +23,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace margelo::nitro::audiobrowser {
 

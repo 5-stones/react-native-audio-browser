@@ -13,12 +13,14 @@
 #include "HttpMethod.hpp"
 #include "ImageContext.hpp"
 #include "ImageQueryParams.hpp"
+#include "ImageRowItem.hpp"
 #include "ImageSource.hpp"
 #include "JFunc_std__shared_ptr_Promise_std__shared_ptr_Promise_RequestConfig_____MediaTransformParams.hpp"
 #include "JFunc_std__shared_ptr_Promise_std__shared_ptr_Promise_RequestConfig_____Track.hpp"
 #include "JHttpMethod.hpp"
 #include "JImageContext.hpp"
 #include "JImageQueryParams.hpp"
+#include "JImageRowItem.hpp"
 #include "JImageSource.hpp"
 #include "JMediaTransformParams.hpp"
 #include "JRequestConfig.hpp"
@@ -35,6 +37,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace margelo::nitro::audiobrowser {
 

@@ -64,6 +64,8 @@ namespace margelo::nitro::audiobrowser { enum class IOSCategory; }
 namespace margelo::nitro::audiobrowser { struct ImageContext; }
 // Forward declaration of `ImageQueryParams` to properly resolve imports.
 namespace margelo::nitro::audiobrowser { struct ImageQueryParams; }
+// Forward declaration of `ImageRowItem` to properly resolve imports.
+namespace margelo::nitro::audiobrowser { struct ImageRowItem; }
 // Forward declaration of `ImageSource` to properly resolve imports.
 namespace margelo::nitro::audiobrowser { struct ImageSource; }
 // Forward declaration of `IosOutputType` to properly resolve imports.
@@ -208,6 +210,7 @@ namespace margelo::nitro::audiobrowser { struct UpdateOptions; }
 #include "IOSCategoryPolicy.hpp"
 #include "ImageContext.hpp"
 #include "ImageQueryParams.hpp"
+#include "ImageRowItem.hpp"
 #include "ImageSource.hpp"
 #include "IosOutput.hpp"
 #include "IosOutputType.hpp"

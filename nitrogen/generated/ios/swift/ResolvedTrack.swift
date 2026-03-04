@@ -18,7 +18,7 @@ public extension ResolvedTrack {
   /**
    * Create a new instance of `ResolvedTrack`.
    */
-  init(url: String, children: [Track]?, carPlaySiriListButton: CarPlaySiriListButtonPosition?, src: String?, artwork: String?, artworkSource: ImageSource?, artworkCarPlayTinted: Bool?, title: String, subtitle: String?, artist: String?, album: String?, description: String?, genre: String?, duration: Double?, style: TrackStyle?, childrenStyle: TrackStyle?, favorited: Bool?, groupTitle: String?, live: Bool?) {
+  init(url: String, children: [Track]?, carPlaySiriListButton: CarPlaySiriListButtonPosition?, src: String?, artwork: String?, artworkSource: ImageSource?, artworkCarPlayTinted: Bool?, title: String, subtitle: String?, artist: String?, album: String?, description: String?, genre: String?, duration: Double?, style: TrackStyle?, childrenStyle: TrackStyle?, favorited: Bool?, groupTitle: String?, live: Bool?, imageRow: [ImageRowItem]?) {
     self.init(std.string(url), { () -> bridge.std__optional_std__vector_Track__ in
       if let __unwrappedValue = children {
         return bridge.create_std__optional_std__vector_Track__({ () -> bridge.std__vector_Track_ in
@@ -124,6 +124,18 @@ public extension ResolvedTrack {
     }(), { () -> bridge.std__optional_bool_ in
       if let __unwrappedValue = live {
         return bridge.create_std__optional_bool_(__unwrappedValue)
+      } else {
+        return .init()
+      }
+    }(), { () -> bridge.std__optional_std__vector_ImageRowItem__ in
+      if let __unwrappedValue = imageRow {
+        return bridge.create_std__optional_std__vector_ImageRowItem__({ () -> bridge.std__vector_ImageRowItem_ in
+          var __vector = bridge.create_std__vector_ImageRowItem_(__unwrappedValue.count)
+          for __item in __unwrappedValue {
+            __vector.push_back(__item)
+          }
+          return __vector
+        }())
       } else {
         return .init()
       }
@@ -310,6 +322,18 @@ public extension ResolvedTrack {
       if bridge.has_value_std__optional_bool_(self.__live) {
         let __unwrapped = bridge.get_std__optional_bool_(self.__live)
         return __unwrapped
+      } else {
+        return nil
+      }
+    }()
+  }
+  
+  @inline(__always)
+  var imageRow: [ImageRowItem]? {
+    return { () -> [ImageRowItem]? in
+      if bridge.has_value_std__optional_std__vector_ImageRowItem__(self.__imageRow) {
+        let __unwrapped = bridge.get_std__optional_std__vector_ImageRowItem__(self.__imageRow)
+        return __unwrapped.map({ __item in __item })
       } else {
         return nil
       }

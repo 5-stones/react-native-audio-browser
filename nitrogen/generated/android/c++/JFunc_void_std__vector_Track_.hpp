@@ -24,6 +24,8 @@
 #include <unordered_map>
 #include "TrackStyle.hpp"
 #include "JTrackStyle.hpp"
+#include "ImageRowItem.hpp"
+#include "JImageRowItem.hpp"
 
 namespace margelo::nitro::audiobrowser {
 

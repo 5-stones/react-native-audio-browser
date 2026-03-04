@@ -27,6 +27,9 @@
 #include "JImageSource.hpp"
 #include "TrackStyle.hpp"
 #include "JTrackStyle.hpp"
+#include "ImageRowItem.hpp"
+#include <vector>
+#include "JImageRowItem.hpp"
 
 namespace margelo::nitro::audiobrowser {
 

@@ -15,6 +15,8 @@ namespace margelo::nitro::audiobrowser { struct ImageSource; }
 namespace margelo::nitro::audiobrowser { enum class HttpMethod; }
 // Forward declaration of `TrackStyle` to properly resolve imports.
 namespace margelo::nitro::audiobrowser { enum class TrackStyle; }
+// Forward declaration of `ImageRowItem` to properly resolve imports.
+namespace margelo::nitro::audiobrowser { struct ImageRowItem; }
 // Forward declaration of `ResolvedTrack` to properly resolve imports.
 namespace margelo::nitro::audiobrowser { struct ResolvedTrack; }
 // Forward declaration of `CarPlaySiriListButtonPosition` to properly resolve imports.
@@ -188,6 +190,8 @@ namespace margelo::nitro::audiobrowser { struct NowPlayingUpdate; }
 #include <unordered_map>
 #include "TrackStyle.hpp"
 #include "JTrackStyle.hpp"
+#include "ImageRowItem.hpp"
+#include "JImageRowItem.hpp"
 #include <functional>
 #include "JFunc_void_std__string.hpp"
 #include <NitroModules/JNICallable.hpp>

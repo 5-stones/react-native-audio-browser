@@ -11,14 +11,17 @@
 #include "Track.hpp"
 
 #include "HttpMethod.hpp"
+#include "ImageRowItem.hpp"
 #include "ImageSource.hpp"
 #include "JHttpMethod.hpp"
+#include "JImageRowItem.hpp"
 #include "JImageSource.hpp"
 #include "JTrackStyle.hpp"
 #include "TrackStyle.hpp"
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace margelo::nitro::audiobrowser {
 
@@ -73,6 +76,8 @@ namespace margelo::nitro::audiobrowser {
       jni::local_ref<jni::JString> groupTitle = this->getFieldValue(fieldGroupTitle);
       static const auto fieldLive = clazz->getField<jni::JBoolean>("live");
       jni::local_ref<jni::JBoolean> live = this->getFieldValue(fieldLive);
+      static const auto fieldImageRow = clazz->getField<jni::JArrayClass<JImageRowItem>>("imageRow");
+      jni::local_ref<jni::JArrayClass<JImageRowItem>> imageRow = this->getFieldValue(fieldImageRow);
       return Track(
         url != nullptr ? std::make_optional(url->toStdString()) : std::nullopt,
         src != nullptr ? std::make_optional(src->toStdString()) : std::nullopt,
@@ -90,7 +95,17 @@ namespace margelo::nitro::audiobrowser {
         childrenStyle != nullptr ? std::make_optional(childrenStyle->toCpp()) : std::nullopt,
         favorited != nullptr ? std::make_optional(static_cast<bool>(favorited->value())) : std::nullopt,
         groupTitle != nullptr ? std::make_optional(groupTitle->toStdString()) : std::nullopt,
-        live != nullptr ? std::make_optional(static_cast<bool>(live->value())) : std::nullopt
+        live != nullptr ? std::make_optional(static_cast<bool>(live->value())) : std::nullopt,
+        imageRow != nullptr ? std::make_optional([&]() {
+          size_t __size = imageRow->size();
+          std::vector<ImageRowItem> __vector;
+          __vector.reserve(__size);
+          for (size_t __i = 0; __i < __size; __i++) {
+            auto __element = imageRow->getElement(__i);
+            __vector.push_back(__element->toCpp());
+          }
+          return __vector;
+        }()) : std::nullopt
       );
     }
 
@@ -100,7 +115,7 @@ namespace margelo::nitro::audiobrowser {
      */
     [[maybe_unused]]
     static jni::local_ref<JTrack::javaobject> fromCpp(const Track& value) {
-      using JSignature = JTrack(jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<JImageSource>, jni::alias_ref<jni::JBoolean>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JDouble>, jni::alias_ref<JTrackStyle>, jni::alias_ref<JTrackStyle>, jni::alias_ref<jni::JBoolean>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JBoolean>);
+      using JSignature = JTrack(jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<JImageSource>, jni::alias_ref<jni::JBoolean>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JDouble>, jni::alias_ref<JTrackStyle>, jni::alias_ref<JTrackStyle>, jni::alias_ref<jni::JBoolean>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JBoolean>, jni::alias_ref<jni::JArrayClass<JImageRowItem>>);
       static const auto clazz = javaClassStatic();
       static const auto create = clazz->getStaticMethod<JSignature>("fromCpp");
       return create(
@@ -121,7 +136,17 @@ namespace margelo::nitro::audiobrowser {
         value.childrenStyle.has_value() ? JTrackStyle::fromCpp(value.childrenStyle.value()) : nullptr,
         value.favorited.has_value() ? jni::JBoolean::valueOf(value.favorited.value()) : nullptr,
         value.groupTitle.has_value() ? jni::make_jstring(value.groupTitle.value()) : nullptr,
-        value.live.has_value() ? jni::JBoolean::valueOf(value.live.value()) : nullptr
+        value.live.has_value() ? jni::JBoolean::valueOf(value.live.value()) : nullptr,
+        value.imageRow.has_value() ? [&]() {
+          size_t __size = value.imageRow.value().size();
+          jni::local_ref<jni::JArrayClass<JImageRowItem>> __array = jni::JArrayClass<JImageRowItem>::newArray(__size);
+          for (size_t __i = 0; __i < __size; __i++) {
+            const auto& __element = value.imageRow.value()[__i];
+            auto __elementJni = JImageRowItem::fromCpp(__element);
+            __array->setElement(__i, *__elementJni);
+          }
+          return __array;
+        }() : nullptr
       );
     }
   };

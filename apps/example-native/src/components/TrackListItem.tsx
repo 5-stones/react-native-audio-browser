@@ -1,7 +1,14 @@
 import Icon from '@react-native-vector-icons/fontawesome6'
 import React from 'react'
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { Track } from 'react-native-audio-browser'
+import {
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native'
+import { ImageRowItem, navigate, Track } from 'react-native-audio-browser'
 
 type TrackListItemProps = {
   track: Track
@@ -14,6 +21,12 @@ export function TrackListItem({
   isActive,
   onPress
 }: TrackListItemProps) {
+  if (track.imageRow) {
+    return (
+      <ImageRowListItem track={track} onPress={onPress} />
+    )
+  }
+
   return (
     <TouchableOpacity
       style={[styles.item, isActive && styles.activeItem]}
@@ -55,6 +68,62 @@ export function TrackListItem({
     </TouchableOpacity>
   )
 }
+
+function ImageRowListItem({
+  track,
+  onPress
+}: {
+  track: Track
+  onPress: () => void
+}) {
+  const handleImageRowItemPress = (item: ImageRowItem) => {
+    if (item.url) {
+      navigate(item.url)
+    }
+  }
+
+  return (
+    <View style={styles.imageRowContainer}>
+      <TouchableOpacity onPress={onPress}>
+        <Text style={styles.imageRowTitle}>{track.title}</Text>
+      </TouchableOpacity>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.imageRowScroll}
+      >
+        {track.imageRow!.map((item, index) => (
+          <TouchableOpacity
+            key={`${item.title}-${index}`}
+            style={styles.imageRowItem}
+            onPress={() => handleImageRowItemPress(item)}
+          >
+            {item.artworkSource ? (
+              <Image
+                source={item.artworkSource}
+                style={styles.imageRowArtwork}
+              />
+            ) : (
+              <View style={[styles.imageRowArtwork, styles.imageRowPlaceholder]}>
+                <Icon
+                  name="music"
+                  size={32}
+                  color="#555555"
+                  iconStyle="solid"
+                />
+              </View>
+            )}
+            <Text style={styles.imageRowItemTitle} numberOfLines={2}>
+              {item.title}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  )
+}
+
+const IMAGE_ROW_SIZE = 120
 
 const styles = StyleSheet.create({
   item: {
@@ -99,5 +168,39 @@ const styles = StyleSheet.create({
   },
   activeItemArtist: {
     color: '#888888'
+  },
+  imageRowContainer: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#222222'
+  },
+  imageRowTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+    paddingHorizontal: 16,
+    marginBottom: 12
+  },
+  imageRowScroll: {
+    paddingHorizontal: 16,
+    gap: 12
+  },
+  imageRowItem: {
+    width: IMAGE_ROW_SIZE
+  },
+  imageRowArtwork: {
+    width: IMAGE_ROW_SIZE,
+    height: IMAGE_ROW_SIZE,
+    borderRadius: 8
+  },
+  imageRowPlaceholder: {
+    backgroundColor: '#2a2a2a',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  imageRowItemTitle: {
+    fontSize: 12,
+    color: '#cccccc',
+    marginTop: 6
   }
 })
