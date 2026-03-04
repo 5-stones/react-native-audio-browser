@@ -11,6 +11,7 @@ interface Props {
 }
 interface JNIHybridObjectRegistration {
     cppCode: string;
+    cppDefinition: string;
     requiredImports: SourceImport[];
 }
 export declare function createJNIHybridObjectRegistration({ hybridObjectName, jniClassName, }: Props): JNIHybridObjectRegistration;

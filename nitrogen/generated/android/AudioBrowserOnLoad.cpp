@@ -66,12 +66,21 @@ int initialize(JavaVM* vm) {
   });
 }
 
+struct JHybridAudioBrowserSpecImpl: public jni::JavaClass<JHybridAudioBrowserSpecImpl, JHybridAudioBrowserSpec::JavaPart> {
+  static auto constexpr kJavaDescriptor = "Lcom/margelo/nitro/audiobrowser/AudioBrowser;";
+  static std::shared_ptr<JHybridAudioBrowserSpec> create() {
+    static auto constructorFn = javaClassStatic()->getConstructor<JHybridAudioBrowserSpecImpl::javaobject()>();
+    jni::local_ref<JHybridAudioBrowserSpec::JavaPart> javaPart = javaClassStatic()->newObject(constructorFn);
+    return javaPart->getJHybridAudioBrowserSpec();
+  }
+};
+
 void registerAllNatives() {
   using namespace margelo::nitro;
   using namespace margelo::nitro::audiobrowser;
 
   // Register native JNI methods
-  margelo::nitro::audiobrowser::JHybridAudioBrowserSpec::registerNatives();
+  margelo::nitro::audiobrowser::JHybridAudioBrowserSpec::CxxPart::registerNatives();
   margelo::nitro::audiobrowser::JFunc_void_std__string_cxx::registerNatives();
   margelo::nitro::audiobrowser::JFunc_void_std__optional_ResolvedTrack__cxx::registerNatives();
   margelo::nitro::audiobrowser::JFunc_void_std__vector_Track__cxx::registerNatives();
@@ -117,9 +126,7 @@ void registerAllNatives() {
   HybridObjectRegistry::registerHybridObjectConstructor(
     "AudioBrowser",
     []() -> std::shared_ptr<HybridObject> {
-      static DefaultConstructableObject<JHybridAudioBrowserSpec::javaobject> object("com/audiobrowser/AudioBrowser");
-      auto instance = object.create();
-      return instance->cthis()->shared();
+      return JHybridAudioBrowserSpecImpl::create();
     }
   );
 }

@@ -10222,9 +10222,9 @@ __metadata:
     react: "npm:19.1.1"
     react-native: "npm:0.83.0"
     react-native-audio-browser: "workspace:*"
-    react-native-mmkv: "npm:^4.1.0"
+    react-native-mmkv: "npm:4.2.0"
     react-native-monorepo-config: "npm:^0.3.0"
-    react-native-nitro-modules: "npm:0.34.1"
+    react-native-nitro-modules: "npm:0.35.0"
     react-native-safe-area-context: "npm:^5.6.2"
     typescript: "npm:^5.9.3"
   languageName: unknown
@@ -14728,18 +14728,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"nitrogen@npm:0.34.1":
-  version: 0.34.1
-  resolution: "nitrogen@npm:0.34.1"
+"nitrogen@npm:0.35.0":
+  version: 0.35.0
+  resolution: "nitrogen@npm:0.35.0"
   dependencies:
     chalk: "npm:^5.3.0"
-    react-native-nitro-modules: "npm:^0.34.1"
+    react-native-nitro-modules: "npm:^0.35.0"
     ts-morph: "npm:^27.0.0"
     yargs: "npm:^18.0.0"
     zod: "npm:^4.0.5"
   bin:
     nitrogen: lib/index.js
-  checksum: 10/116e582d13dd99e40d6620c15224ae9bd3f9f8185db2574e2524c2f6d11a72b3ee914e1fa69f5a71012221355f6d787bbd6aaf24681127bf9a8a9890446a78d0
+  checksum: 10/4b18282d4f703d76da6c75fa8d0bbcad34deebf68f0f74542f4aec66c8d56f58e79f1c9d5c3047e969f5244290234125c1fa1c7abaaa6736b4d0a0f341188355
   languageName: node
   linkType: hard
 
@@ -16480,7 +16480,7 @@ __metadata:
     "@types/react": "npm:19.1.1"
     conventional-changelog-conventionalcommits: "npm:^9.1.0"
     del-cli: "npm:^5.1.0"
-    nitrogen: "npm:0.34.1"
+    nitrogen: "npm:0.35.0"
     oxfmt: "npm:^0.27.0"
     oxlint: "npm:^1.42.0"
     oxlint-tsgolint: "npm:^0.11.2"
@@ -16489,7 +16489,7 @@ __metadata:
     react-native: "npm:0.83.0"
     react-native-builder-bob: "npm:^0.37.0"
     react-native-monorepo-config: "npm:^0.3.1"
-    react-native-nitro-modules: "npm:0.34.1"
+    react-native-nitro-modules: "npm:0.35.0"
     semantic-release: "npm:^24.2.9"
     shaka-player: "npm:^4.15.4"
     typescript: "npm:^5.8.3"
@@ -16538,14 +16538,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-mmkv@npm:^4.1.0":
-  version: 4.1.2
-  resolution: "react-native-mmkv@npm:4.1.2"
+"react-native-mmkv@npm:4.2.0":
+  version: 4.2.0
+  resolution: "react-native-mmkv@npm:4.2.0"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: "*"
-  checksum: 10/45f990de6d58acc3a76c82fe0dbe8e4922116c12433d0bbd0813cb0d825c9201dfee5f470c9118b017b24fcdede336cbd6eb2a0186292d7fea1c11d4407d5fe0
+  checksum: 10/8f0e919eb3add26d47a9d5e171672928c322c89ef92108375ffcc2829d40a5d1727f6b9bed771d1fc7abf76f80695e522d47699c8a891c36a98b04afd3a8d1d1
   languageName: node
   linkType: hard
 
@@ -16559,13 +16559,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-nitro-modules@npm:0.34.1, react-native-nitro-modules@npm:^0.34.1":
-  version: 0.34.1
-  resolution: "react-native-nitro-modules@npm:0.34.1"
+"react-native-nitro-modules@npm:0.35.0, react-native-nitro-modules@npm:^0.35.0":
+  version: 0.35.0
+  resolution: "react-native-nitro-modules@npm:0.35.0"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/2754cd1b2bb13fdde31b6d95be665dcdc8af4ecca64e5c123016ab9cbfcf0907ebafff3f4f29ac8be68225543efdd353666d0e80cb9cedde220be4c7ccd93cd9
+  checksum: 10/6c9166a115a03bfc26d3cb9a75761a1fdf33a06bdfb853779539cfe3d7dc2239e242a7fbd4cbb7e9dc0af90a373606fc607fa8a09ef4ff49f7ff29ccff736bbf
   languageName: node
   linkType: hard
 

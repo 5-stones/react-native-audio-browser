@@ -22,10 +22,6 @@ data class ${innerName}(@DoNotStrip val value: ${bridge.getTypeCode('kotlin')}):
       `.trim();
     });
     const packageName = NitroConfig.current.getAndroidPackage('java/kotlin');
-    const getterCases = variant.cases.map(([label]) => {
-        const innerName = capitalizeName(label);
-        return `is ${innerName} -> value as? T`;
-    });
     const isFunctions = variant.cases.map(([label]) => {
         const innerName = capitalizeName(label);
         return `
@@ -82,11 +78,6 @@ ${extraImports.join('\n')}
 @DoNotStrip
 sealed class ${kotlinName} {
   ${indent(innerClasses.join('\n'), '  ')}
-
-  @Deprecated("getAs() is not type-safe. Use fold/asFirstOrNull/asSecondOrNull instead.", level = DeprecationLevel.ERROR)
-  inline fun <reified T> getAs(): T? = when (this) {
-    ${indent(getterCases.join('\n'), '    ')}
-  }
 
   ${indent(isFunctions.join('\n'), '  ')}
 

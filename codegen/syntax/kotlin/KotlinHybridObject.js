@@ -20,6 +20,11 @@ export function createKotlinHybridObject(spec) {
         ...spec.properties.flatMap((p) => p.getRequiredImports('kotlin')),
         ...spec.methods.flatMap((m) => m.getRequiredImports('kotlin')),
         ...spec.baseTypes.flatMap((b) => new HybridObjectType(b).getRequiredImports('kotlin')),
+        {
+            name: 'com.margelo.nitro.core.HybridObject',
+            space: 'system',
+            language: 'kotlin',
+        },
     ];
     if (spec.isHybridView) {
         extraImports.push({
@@ -28,14 +33,8 @@ export function createKotlinHybridObject(spec) {
             language: 'kotlin',
         });
     }
-    else {
-        extraImports.push({
-            name: 'com.margelo.nitro.core.HybridObject',
-            space: 'system',
-            language: 'kotlin',
-        });
-    }
     let kotlinBase = spec.isHybridView ? 'HybridView' : 'HybridObject';
+    let cxxPartBase = 'HybridObject.CxxPart';
     if (spec.baseTypes.length > 0) {
         if (spec.baseTypes.length > 1) {
             throw new Error(`${name.T}: Inheriting from multiple HybridObject bases is not yet supported in Kotlin!`);
@@ -43,6 +42,7 @@ export function createKotlinHybridObject(spec) {
         const base = spec.baseTypes[0];
         const baseHybrid = new HybridObjectType(base);
         kotlinBase = baseHybrid.getCode('kotlin');
+        cxxPartBase = `${kotlinBase}.CxxPart`;
     }
     const imports = extraImports
         .map((i) => `import ${i.name}`)
@@ -71,30 +71,27 @@ ${imports.join('\n')}
   "LocalVariableName", "PropertyName", "PrivatePropertyName", "FunctionName"
 )
 abstract class ${name.HybridTSpec}: ${kotlinBase}() {
-  @DoNotStrip
-  private var mHybridData: HybridData = initHybrid()
-
-  init {
-    super.updateNative(mHybridData)
-  }
-
-  override fun updateNative(hybridData: HybridData) {
-    mHybridData = hybridData
-    super.updateNative(hybridData)
-  }
-
-  // Default implementation of \`HybridObject.toString()\`
-  override fun toString(): String {
-    return "[HybridObject ${name.T}]"
-  }
-
   // Properties
   ${indent(properties, '  ')}
 
   // Methods
   ${indent(methods, '  ')}
 
-  private external fun initHybrid(): HybridData
+  // Default implementation of \`HybridObject.toString()\`
+  override fun toString(): String {
+    return "[HybridObject ${name.T}]"
+  }
+
+  // C++ backing class
+  @DoNotStrip
+  @Keep
+  protected open class CxxPart(javaPart: ${name.HybridTSpec}): ${cxxPartBase}(javaPart) {
+    // C++ ${name.JHybridTSpec}::CxxPart::initHybrid(...)
+    external override fun initHybrid(): HybridData
+  }
+  override fun createCxxPart(): CxxPart {
+    return CxxPart(this)
+  }
 
   companion object {
     protected const val TAG = "${name.HybridTSpec}"

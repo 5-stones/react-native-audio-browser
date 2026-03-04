@@ -93,9 +93,9 @@ let insideReferenceType = false;
 function createStructWithCycleDetection(language, key, typename, type) {
     if (processingStructs[language].has(key) && !insideReferenceType) {
         // Direct cyclic reference detected - this struct has a property that is the same struct type
-        throw new Error(`Cyclic struct reference detected: "${typename}" references itself directly or indirectly. ` +
-            `Structs cannot have cyclic references because they are value types with fixed size in C++ and Swift. ` +
-            `See: https://nitro.margelo.com/docs/types/custom-structs#cyclic-references-are-not-supported`);
+        throw new Error(`Cyclic struct reference detected: "${typename}" references itself directly. ` +
+            `Structs cannot have direct cyclic references because they are value types with fixed size in C++ and Swift. ` +
+            `See: https://nitro.margelo.com/docs/types/custom-structs#direct-cyclic-references-are-not-supported`);
     }
     // Check if we already have this type fully created
     const existing = knownTypes[language].get(key);
