@@ -20,12 +20,11 @@ private struct UncheckedSendableBox<T>: @unchecked Sendable {
 ///
 /// On iOS 15.x, falls back to manual `MPNowPlayingInfoCenter` updates for all properties.
 ///
-/// Thread safety is managed via a concurrent DispatchQueue with barriers.
+/// Thread safety is managed via a serial DispatchQueue.
 class NowPlayingInfoController: @unchecked Sendable {
   private let logger = Logger(subsystem: "com.audiobrowser", category: "NowPlayingInfoController")
   private var infoQueue = DispatchQueue(
-    label: "NowPlayingInfoController.infoQueue",
-    attributes: .concurrent,
+    label: "NowPlayingInfoController.infoQueue"
   )
 
   private(set) var infoCenter: NowPlayingInfoCenter
@@ -82,7 +81,7 @@ class NowPlayingInfoController: @unchecked Sendable {
     if #available(iOS 16.0, *) {
       // Box callback to safely cross concurrency boundary
       let boxedCallback = UncheckedSendableBox(value: onRemoteCommandCenterChanged)
-      infoQueue.async(flags: .barrier) {
+      infoQueue.async {
         self.logger.info("Linking AVPlayer to MPNowPlayingSession for automatic publishing")
 
         // Store player reference
@@ -121,7 +120,7 @@ class NowPlayingInfoController: @unchecked Sendable {
     if #available(iOS 16.0, *) {
       // Box callback to safely cross concurrency boundary
       let boxedCallback = UncheckedSendableBox(value: onRemoteCommandCenterChanged)
-      infoQueue.async(flags: .barrier) {
+      infoQueue.async {
         self.logger.info("Unlinking AVPlayer from MPNowPlayingSession")
 
         // Clear player reference
@@ -164,7 +163,7 @@ class NowPlayingInfoController: @unchecked Sendable {
   func set(keyValues: [NowPlayingInfoKeyValue]) {
     // Extract and box key-value pairs before closure to safely cross concurrency boundary
     let boxedPairs = UncheckedSendableBox(value: keyValues.map { ($0.key, $0.value) })
-    infoQueue.async(flags: .barrier) {
+    infoQueue.async {
       for (key, value) in boxedPairs.value {
         if !self.shouldSkipKey(key) {
           self._info[key] = value
@@ -180,7 +179,7 @@ class NowPlayingInfoController: @unchecked Sendable {
   func setWithoutUpdate(keyValues: [NowPlayingInfoKeyValue]) {
     // Extract and box key-value pairs before closure to safely cross concurrency boundary
     let boxedPairs = UncheckedSendableBox(value: keyValues.map { ($0.key, $0.value) })
-    infoQueue.async(flags: .barrier) {
+    infoQueue.async {
       for (key, value) in boxedPairs.value {
         if !self.shouldSkipKey(key) {
           self._info[key] = value
@@ -195,7 +194,7 @@ class NowPlayingInfoController: @unchecked Sendable {
     // Box key and value before closure to safely cross concurrency boundary
     let key = keyValue.key
     let boxedValue = UncheckedSendableBox(value: keyValue.value)
-    infoQueue.async(flags: .barrier) {
+    infoQueue.async {
       if !self.shouldSkipKey(key) {
         self._info[key] = boxedValue.value
         self.performUpdate()
@@ -207,7 +206,7 @@ class NowPlayingInfoController: @unchecked Sendable {
   /// Thread-safe - can be called from any thread.
   /// Use after calling setWithoutUpdate() to commit batched changes.
   func update() {
-    infoQueue.async(flags: .barrier) {
+    infoQueue.async {
       self.performUpdate()
     }
   }
@@ -262,7 +261,7 @@ class NowPlayingInfoController: @unchecked Sendable {
 
   /// Clears all Now Playing info
   func clear() {
-    infoQueue.async(flags: .barrier) {
+    infoQueue.async {
       self._info = [:]
 
       // With automatic publishing, the session handles clearing when the player stops
@@ -275,7 +274,7 @@ class NowPlayingInfoController: @unchecked Sendable {
 
   /// Sets the playback state (required for CarPlay Now Playing to show correct play/pause state)
   func setPlaybackState(_ state: MPNowPlayingPlaybackState) {
-    infoQueue.async(flags: .barrier) {
+    infoQueue.async {
       self.logger.debug("setPlaybackState: \(state.rawValue)")
       self.infoCenter.playbackState = state
     }

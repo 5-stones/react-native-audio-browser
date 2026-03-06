@@ -137,7 +137,7 @@ class TPC protocol
 ### Thread Safety
 
 - `HybridAudioBrowser.onMainThread()` ensures player operations run on main thread
-- `NowPlayingInfoController` uses concurrent queue with barriers
+- `NowPlayingInfoController` uses serial dispatch queue
 - `LRUCache` uses NSLock for thread-safe access
 - `BrowserManager` asserts main thread for state modifications
 
@@ -186,7 +186,7 @@ ios/
 │   └── PlaybackProgressUpdateManager.swift   # Timer-based periodic progress
 ├── NowPlayingInfo/
 │   ├── NowPlayingInfoController.swift # Thread-safe MPNowPlayingInfoCenter
-│   │                                 # Concurrent queue with barriers
+│   │                                 # Serial dispatch queue
 │   ├── NowPlayingInfoCenter.swift    # Protocol for testability
 │   ├── NowPlayingInfoKeyValue.swift  # Key-value protocol
 │   ├── MediaItemProperty.swift       # Track metadata properties
