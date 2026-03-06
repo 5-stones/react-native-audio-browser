@@ -2,7 +2,7 @@ import Foundation
 import os.log
 
 /// URLSession-based HTTP client for API requests.
-final class HttpClient {
+final class HttpClient: @unchecked Sendable {
   static let defaultUserAgent = "react-native-audio-browser"
   static let defaultContentType = "application/json"
   private static let timeoutSeconds: TimeInterval = 30

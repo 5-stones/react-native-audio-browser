@@ -12,6 +12,10 @@ import os.log
   return (browser, player)
 }
 
+/// Wraps a non-Sendable value for passing through MainActor.assumeIsolated.
+/// Only safe when the caller blocks until the MainActor work completes (DispatchQueue.main.sync).
+private struct UncheckedSendableBox<T>: @unchecked Sendable { let value: T }
+
 public class HybridAudioBrowser: HybridAudioBrowserSpec, @unchecked Sendable {
   private let logger = Logger(subsystem: "com.audiobrowser", category: "AudioBrowser")
 
@@ -24,7 +28,7 @@ public class HybridAudioBrowser: HybridAudioBrowserSpec, @unchecked Sendable {
 
   private var player: TrackPlayer?
   private let networkMonitor = NetworkMonitor()
-  let browserManager = BrowserManager()
+  nonisolated(unsafe) let browserManager = BrowserManager()
   private var volumeObservation: NSKeyValueObservation?
   private var routeChangeObserver: NSObjectProtocol?
   private var nowPlayingOverride: NowPlayingUpdate?
@@ -62,25 +66,24 @@ public class HybridAudioBrowser: HybridAudioBrowserSpec, @unchecked Sendable {
 
   // MARK: - Thread Safety
 
-  /// Executes a closure on the main actor synchronously, returning its result.
-  /// Uses MainActor.assumeIsolated when already on main thread, otherwise dispatches synchronously.
-  private func onMainActor<T: Sendable>(_ work: @MainActor () -> T) -> T {
+  /// Runs a closure on MainActor synchronously. Safe for non-Sendable return types
+  /// because DispatchQueue.main.sync blocks the caller — no concurrent access window.
+  private func onMainActor<T>(_ work: @MainActor () -> T) -> T {
     if Thread.isMainThread {
-      MainActor.assumeIsolated { work() }
+      return MainActor.assumeIsolated { UncheckedSendableBox(value: work()) }.value
     } else {
-      DispatchQueue.main.sync {
-        MainActor.assumeIsolated { work() }
+      return DispatchQueue.main.sync {
+        MainActor.assumeIsolated { UncheckedSendableBox(value: work()) }.value
       }
     }
   }
 
-  /// Executes a throwing closure on the main actor synchronously.
-  private func onMainActor<T: Sendable>(_ work: @MainActor () throws -> T) throws -> T {
+  private func onMainActor<T>(_ work: @MainActor () throws -> T) throws -> T {
     if Thread.isMainThread {
-      try MainActor.assumeIsolated { try work() }
+      return try MainActor.assumeIsolated { UncheckedSendableBox(value: try work()) }.value
     } else {
-      try DispatchQueue.main.sync {
-        try MainActor.assumeIsolated { try work() }
+      return try DispatchQueue.main.sync {
+        try MainActor.assumeIsolated { UncheckedSendableBox(value: try work()) }.value
       }
     }
   }
@@ -88,7 +91,7 @@ public class HybridAudioBrowser: HybridAudioBrowserSpec, @unchecked Sendable {
   // MARK: - Browser Properties
 
   public var path: String? {
-    get { browserManager.getPath() }
+    get { onMainActor { browserManager.getPath() } }
     set {
       guard let newPath = newValue else { return }
       Task {
@@ -102,7 +105,7 @@ public class HybridAudioBrowser: HybridAudioBrowserSpec, @unchecked Sendable {
   }
 
   public var tabs: [Track]? {
-    get { browserManager.getTabs() }
+    get { onMainActor { browserManager.getTabs() } }
     set { /* tabs are managed internally by browserManager */ }
   }
 
@@ -112,7 +115,7 @@ public class HybridAudioBrowser: HybridAudioBrowserSpec, @unchecked Sendable {
     carPlayUpNextButton: nil, carPlayNowPlayingButtons: nil, formatNavigationError: nil,
   ) {
     didSet {
-      browserManager.config = BrowserConfig(from: configuration)
+      onMainActor { browserManager.config = BrowserConfig(from: configuration) }
 
       // Query tabs and navigate to initial path after config is set (matches Kotlin behavior)
       Task { @MainActor in
@@ -292,20 +295,16 @@ public class HybridAudioBrowser: HybridAudioBrowserSpec, @unchecked Sendable {
   }
 
   private func setupBrowserCallbacks() {
-    browserManager.onPathChanged = { [weak self] path in
-      self?.onPathChanged(path)
-    }
-    browserManager.onContentChanged = { [weak self] content in
-      self?.contentChangedEmitter.emit(content)
-    }
-    browserManager.onTabsChanged = { [weak self] tabs in
-      self?.tabsChangedEmitter.emit(tabs)
-    }
-
-    // Configure artwork URL resolver for transforming artwork URLs during browsing
-    browserManager.artworkUrlResolver = { [weak browserManager] track, artworkConfig, imageContext in
-      guard let browserManager else { return nil }
-      return await browserManager.resolveArtworkUrl(track: track, perRouteConfig: artworkConfig, imageContext: imageContext)
+    onMainActor {
+      browserManager.onPathChanged = { [weak self] path in
+        self?.onPathChanged(path)
+      }
+      browserManager.onContentChanged = { [weak self] content in
+        self?.contentChangedEmitter.emit(content)
+      }
+      browserManager.onTabsChanged = { [weak self] tabs in
+        self?.tabsChangedEmitter.emit(tabs)
+      }
     }
   }
 
@@ -337,7 +336,7 @@ public class HybridAudioBrowser: HybridAudioBrowserSpec, @unchecked Sendable {
 
     // Format the error (async if using JS callback, sync for defaults)
     let defaultFormatted = defaultFormattedError(navError)
-    if let formatter = browserManager.config.formatNavigationError {
+    if let formatter = onMainActor({ browserManager.config.formatNavigationError }) {
       let params = FormatNavigationErrorParams(error: navError, defaultFormatted: defaultFormatted, path: path)
       // Dispatch to main thread for the Nitro bridge call to avoid C++ noexcept crashes
       DispatchQueue.main.async { [weak self] in
@@ -397,7 +396,7 @@ public class HybridAudioBrowser: HybridAudioBrowserSpec, @unchecked Sendable {
   @discardableResult
   private func handleLoadAsync(track: Track, queue: [Track], startIndex: Double, defaultBehavior: () async -> Void) async -> Bool {
     let event = TrackLoadEvent(track: track, queue: queue, startIndex: startIndex)
-    if await browserManager.config.awaitTrackLoadHandler(event: event) { return true }
+    if await browserManager.awaitTrackLoadHandler(event: event) { return true }
     await defaultBehavior()
     return false
   }
@@ -501,7 +500,7 @@ public class HybridAudioBrowser: HybridAudioBrowserSpec, @unchecked Sendable {
   }
 
   public func getContent() throws -> ResolvedTrack? {
-    browserManager.getContent()
+    onMainActor { browserManager.getContent() }
   }
 
   public func getNavigationError() throws -> NavigationError? {
@@ -513,13 +512,13 @@ public class HybridAudioBrowser: HybridAudioBrowserSpec, @unchecked Sendable {
   }
 
   public func notifyContentChanged(path: String) throws {
-    browserManager.invalidateContentCache(path)
+    onMainActor { browserManager.invalidateContentCache(path) }
 
     // Notify external controllers (CarPlay) that content changed
     externalContentChangedEmitter.emit(path)
 
     // Re-resolve the path if it's the current browser path
-    if browserManager.getPath() == path {
+    if onMainActor({ browserManager.getPath() }) == path {
       Task {
         do {
           try await browserManager.navigate(path)
@@ -531,7 +530,7 @@ public class HybridAudioBrowser: HybridAudioBrowserSpec, @unchecked Sendable {
   }
 
   public func setFavorites(favorites: [String]) throws {
-    browserManager.setFavorites(favorites)
+    onMainActor { browserManager.setFavorites(favorites) }
   }
 
   // MARK: - Player Setup

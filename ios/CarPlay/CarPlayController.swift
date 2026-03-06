@@ -580,7 +580,7 @@ public final class RNABCarPlayController: NSObject {
     defaultBehavior: () async -> Void
   ) async -> Bool {
     let event = TrackLoadEvent(track: track, queue: queue, startIndex: startIndex)
-    if await audioBrowser.browserManager.config.awaitTrackLoadHandler(event: event) {
+    if await audioBrowser.browserManager.awaitTrackLoadHandler(event: event) {
       await MainActor.run { self.showNowPlaying(); completion() }
       return true
     }

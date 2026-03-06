@@ -41,7 +41,11 @@ enum BrowserError: Error {
 /// - HTTP API requests and response processing
 /// - JavaScript callback invocation
 /// - Fallback handling and error management
-final class BrowserManager: @unchecked Sendable {
+@MainActor
+final class BrowserManager {
+  // Allow creation from nonisolated contexts (e.g. HybridAudioBrowser property default)
+  nonisolated init() {}
+
   private let logger = Logger(subsystem: "com.audiobrowser", category: "BrowserManager")
 
   // MARK: - Constants (match Kotlin companion object)
@@ -78,37 +82,27 @@ final class BrowserManager: @unchecked Sendable {
 
   // MARK: - Public State
 
-  /// Current navigation path. Must be modified on main thread.
   private(set) var path: String = "/" {
     didSet {
-      assertMainThread()
       if oldValue != path {
         onPathChanged?(path)
       }
     }
   }
 
-  /// Current resolved content. Must be modified on main thread.
   private(set) var content: ResolvedTrack? {
     didSet {
-      assertMainThread()
       // Note: Can't compare ResolvedTrack directly, always fire callback
       onContentChanged?(content)
     }
   }
 
-  /// Current tabs. Must be modified on main thread.
   private(set) var tabs: [Track]? {
     didSet {
-      assertMainThread()
       if let tabs {
         onTabsChanged?(tabs)
       }
     }
-  }
-
-  private func assertMainThread() {
-    assert(Thread.isMainThread, "BrowserManager state must be modified on main thread")
   }
 
   // MARK: - Configuration
@@ -124,19 +118,21 @@ final class BrowserManager: @unchecked Sendable {
     }
   }
 
-  /// Callback to transform artwork URLs for tracks.
-  /// - Parameters:
-  ///   - track: The track whose artwork URL should be transformed
-  ///   - artworkConfig: Per-route artwork config (or nil to use global)
-  ///   - imageContext: Optional size context for CDN URL generation (nil at browse-time)
-  var artworkUrlResolver: ((Track, ArtworkRequestConfig?, ImageContext?) async -> ImageSource?)?
-
   // MARK: - Callbacks
 
   var onPathChanged: ((String) -> Void)?
   var onContentChanged: ((ResolvedTrack?) -> Void)?
   var onTabsChanged: (([Track]) -> Void)?
   var onConfigChanged: ((BrowserConfig) -> Void)?
+
+  /// Forwards to config.awaitTrackLoadHandler so callers don't need to
+  /// cross the MainActor boundary to access `config`.
+  func awaitTrackLoadHandler(event: TrackLoadEvent) async -> Bool {
+    // awaitTrackLoadHandler manages its own MainActor dispatch internally
+    nonisolated(unsafe) let cfg = config
+    nonisolated(unsafe) let evt = event
+    return await cfg.awaitTrackLoadHandler(event: evt)
+  }
 
   // MARK: - Favorites
 
@@ -254,7 +250,6 @@ final class BrowserManager: @unchecked Sendable {
   ///
   /// Uses a navigation ID to prevent race conditions when multiple navigations
   /// overlap. Only the most recent navigation's result is applied.
-  @MainActor
   func navigate(_ path: String) async throws {
     // Increment navigation ID and capture for this navigation
     currentNavigationId += 1
@@ -300,7 +295,6 @@ final class BrowserManager: @unchecked Sendable {
   /// Refreshes the current path by invalidating cache and re-resolving.
   ///
   /// Uses navigation ID tracking to prevent race conditions.
-  @MainActor
   func refresh() async throws {
     // Increment navigation ID and capture for this refresh
     currentNavigationId += 1
@@ -397,9 +391,7 @@ final class BrowserManager: @unchecked Sendable {
     // Priority: callback > config > static
     if let callback = entry.browseCallback {
       let callbackParam = BrowserSourceCallbackParam(path: path, routeParams: params)
-      // Callback returns Promise<Promise<BrowseResult>> - await both layers
-      // MainActor: Nitro bridge call must be on main thread (C++ noexcept)
-      let outerPromise = await MainActor.run { callback(callbackParam) }
+      let outerPromise = callback(callbackParam)
       let innerPromise = try await outerPromise.await()
       let result = try await innerPromise.await()
 
@@ -511,7 +503,6 @@ final class BrowserManager: @unchecked Sendable {
 
       var transformedTrack = track
 
-      // Generate contextual URL for playable-only tracks (has src but no url)
       if track.src != nil, track.url == nil {
         let contextualUrl = BrowserPathHelper.build(parentPath: parentPath, trackId: track.src!)
         transformedTrack = Track(
@@ -536,89 +527,83 @@ final class BrowserManager: @unchecked Sendable {
         )
       }
 
-      // Transform artwork URL if resolver is configured
-      // At browse-time, we don't have display size info
-      if let resolver = artworkUrlResolver {
-        let artworkConfig = routeEntry.artwork ?? config.artwork
-        let browseContext = ImageContext(width: nil, height: nil)
-        if let imageSource = await resolver(transformedTrack, artworkConfig, browseContext) {
-          transformedTrack = Track(
-            url: transformedTrack.url,
-            src: transformedTrack.src,
-            artwork: transformedTrack.artwork,
-            artworkSource: imageSource,
-            artworkCarPlayTinted: transformedTrack.artworkCarPlayTinted,
-            title: transformedTrack.title,
-            subtitle: transformedTrack.subtitle,
-            artist: transformedTrack.artist,
-            album: transformedTrack.album,
-            description: transformedTrack.description,
-            genre: transformedTrack.genre,
-            duration: transformedTrack.duration,
-            style: transformedTrack.style,
-            childrenStyle: transformedTrack.childrenStyle,
-            favorited: transformedTrack.favorited,
-            groupTitle: transformedTrack.groupTitle,
-            live: transformedTrack.live,
-            imageRow: transformedTrack.imageRow,
-          )
-        }
+      // Resolve artwork URL at browse-time (no size context)
+      let artworkConfig = routeEntry.artwork ?? config.artwork
+      if let imageSource = await resolveArtworkUrl(track: transformedTrack, perRouteConfig: artworkConfig) {
+        transformedTrack = Track(
+          url: transformedTrack.url,
+          src: transformedTrack.src,
+          artwork: transformedTrack.artwork,
+          artworkSource: imageSource,
+          artworkCarPlayTinted: transformedTrack.artworkCarPlayTinted,
+          title: transformedTrack.title,
+          subtitle: transformedTrack.subtitle,
+          artist: transformedTrack.artist,
+          album: transformedTrack.album,
+          description: transformedTrack.description,
+          genre: transformedTrack.genre,
+          duration: transformedTrack.duration,
+          style: transformedTrack.style,
+          childrenStyle: transformedTrack.childrenStyle,
+          favorited: transformedTrack.favorited,
+          groupTitle: transformedTrack.groupTitle,
+          live: transformedTrack.live,
+          imageRow: transformedTrack.imageRow,
+        )
+      }
 
-        // Also resolve artwork for image row items
-        if let imageRowItems = transformedTrack.imageRow {
-          let artworkConfig = routeEntry.artwork ?? config.artwork
-          var resolvedItems: [ImageRowItem] = []
-          for item in imageRowItems {
-            // Create a minimal Track to pass to the artwork resolver
-            let itemTrack = Track(
-              url: item.url,
-              src: nil,
-              artwork: item.artwork,
-              artworkSource: nil,
-              artworkCarPlayTinted: nil,
-              title: item.title,
-              subtitle: nil,
-              artist: nil,
-              album: nil,
-              description: nil,
-              genre: nil,
-              duration: nil,
-              style: nil,
-              childrenStyle: nil,
-              favorited: nil,
-              groupTitle: nil,
-              live: nil,
-              imageRow: nil,
-            )
-            let itemImageSource = await resolver(itemTrack, artworkConfig, browseContext)
-            resolvedItems.append(ImageRowItem(
-              url: item.url,
-              artwork: item.artwork,
-              artworkSource: itemImageSource,
-              title: item.title,
-            ))
-          }
-          transformedTrack = Track(
-            url: transformedTrack.url,
-            src: transformedTrack.src,
-            artwork: transformedTrack.artwork,
-            artworkSource: transformedTrack.artworkSource,
-            artworkCarPlayTinted: transformedTrack.artworkCarPlayTinted,
-            title: transformedTrack.title,
-            subtitle: transformedTrack.subtitle,
-            artist: transformedTrack.artist,
-            album: transformedTrack.album,
-            description: transformedTrack.description,
-            genre: transformedTrack.genre,
-            duration: transformedTrack.duration,
-            style: transformedTrack.style,
-            childrenStyle: transformedTrack.childrenStyle,
-            favorited: transformedTrack.favorited,
-            groupTitle: transformedTrack.groupTitle,
-            live: transformedTrack.live,
-            imageRow: resolvedItems,
+      // Resolve artwork for image row items
+      if let imageRowItems = transformedTrack.imageRow {
+        var resolvedItems: [ImageRowItem] = []
+        for item in imageRowItems {
+          let itemTrack = Track(
+            url: item.url,
+            src: nil,
+            artwork: item.artwork,
+            artworkSource: nil,
+            artworkCarPlayTinted: nil,
+            title: item.title,
+            subtitle: nil,
+            artist: nil,
+            album: nil,
+            description: nil,
+            genre: nil,
+            duration: nil,
+            style: nil,
+            childrenStyle: nil,
+            favorited: nil,
+            groupTitle: nil,
+            live: nil,
+            imageRow: nil,
           )
+          let itemImageSource = await resolveArtworkUrl(track: itemTrack, perRouteConfig: artworkConfig)
+          resolvedItems.append(ImageRowItem(
+            url: item.url,
+            artwork: item.artwork,
+            artworkSource: itemImageSource,
+            title: item.title,
+          ))
         }
+        transformedTrack = Track(
+          url: transformedTrack.url,
+          src: transformedTrack.src,
+          artwork: transformedTrack.artwork,
+          artworkSource: transformedTrack.artworkSource,
+          artworkCarPlayTinted: transformedTrack.artworkCarPlayTinted,
+          title: transformedTrack.title,
+          subtitle: transformedTrack.subtitle,
+          artist: transformedTrack.artist,
+          album: transformedTrack.album,
+          description: transformedTrack.description,
+          genre: transformedTrack.genre,
+          duration: transformedTrack.duration,
+          style: transformedTrack.style,
+          childrenStyle: transformedTrack.childrenStyle,
+          favorited: transformedTrack.favorited,
+          groupTitle: transformedTrack.groupTitle,
+          live: transformedTrack.live,
+          imageRow: resolvedItems,
+        )
       }
 
       transformed.append(transformedTrack)
@@ -679,9 +664,7 @@ final class BrowserManager: @unchecked Sendable {
     var results: [Track]
 
     if let callback = searchEntry.searchCallback {
-      // Callback returns Promise<Promise<[Track]>> - await both layers
-      // MainActor: Nitro bridge call must be on main thread (C++ noexcept)
-      let outerPromise = await MainActor.run { callback(searchParams) }
+      let outerPromise = callback(searchParams)
       let innerPromise = try await outerPromise.await()
       results = try await innerPromise.await()
     } else if let searchConfig = searchEntry.searchConfig {
@@ -728,7 +711,6 @@ final class BrowserManager: @unchecked Sendable {
   // MARK: - Tabs
 
   /// Query navigation tabs.
-  @MainActor
   func queryTabs() async throws -> [Track] {
     guard let routes = config.routes else {
       return []
@@ -812,13 +794,7 @@ final class BrowserManager: @unchecked Sendable {
         )
 
         logger.debug("resolveMediaUrl: calling transform callback...")
-        // Dispatch the Nitro bridge call to MainActor to avoid C++ noexcept crashes.
-        // The generated C++ call() wrapper is noexcept, so any exception from JSI
-        // causes std::terminate. Calling from the main thread is safer for JS callbacks.
-        // Only the initial call is dispatched; awaiting happens on the background thread.
-        let outerPromise = await MainActor.run {
-          transform(baseRequest, nil)
-        }
+        let outerPromise = transform(baseRequest, nil)
         logger.debug("resolveMediaUrl: awaiting outer promise...")
         let innerPromise = try await outerPromise.await()
         logger.debug("resolveMediaUrl: awaiting inner promise...")
@@ -899,7 +875,7 @@ final class BrowserManager: @unchecked Sendable {
       } else {
         SFSymbolRenderer.defaultCanvasSize
       }
-      if let uri = await SFSymbolRenderer.shared.render(artwork, canvasSize: canvasSize) {
+      if let uri = SFSymbolRenderer.shared.render(artwork, canvasSize: canvasSize) {
         return ImageSource(uri: uri, method: nil, headers: nil, body: nil)
       }
       return nil
@@ -932,17 +908,13 @@ final class BrowserManager: @unchecked Sendable {
         userAgent: config.request?.userAgent,
       )
 
-      // If there's a resolve callback, call it for per-track config
       if let resolve = artworkConfig.resolve {
-        // MainActor: Nitro bridge call must be on main thread (C++ noexcept)
-        let outerPromise = await MainActor.run { resolve(track) }
+        let outerPromise = resolve(track)
         let innerPromise = try await outerPromise.await()
         let resolvedConfig = try await innerPromise.await()
 
-        // Merge resolved config (extractConfig avoids Nitro bridge memory issues)
         mergedConfig = mergeRequestConfig(base: mergedConfig, override: extractConfig(resolvedConfig))
       } else {
-        // No resolve callback - apply artwork static config
         let artworkStaticConfig = RequestConfig(
           method: artworkConfig.method,
           path: artworkConfig.path,
@@ -986,19 +958,12 @@ final class BrowserManager: @unchecked Sendable {
         }
       }
 
-      // Apply transform callback if present (can override imageQueryParams)
-      // Skip transform at browse-time (no size context) to avoid excessive JS callbacks
-      // Transform will be called at load-time when actual display size is known
+      // Skip transform at browse-time (no size context) — applied at load-time
       let hasSize = imageContext?.width != nil || imageContext?.height != nil
       if let transform = artworkConfig.transform, hasSize {
-        // MainActor: Nitro bridge call must be on main thread (C++ noexcept)
-        let outerPromise = await MainActor.run {
-          transform(MediaTransformParams(request: mergedConfig, context: imageContext))
-        }
+        let outerPromise = transform(MediaTransformParams(request: mergedConfig, context: imageContext))
         let innerPromise = try await outerPromise.await()
         let transformedConfig = try await innerPromise.await()
-
-        // Extract values immediately to avoid Nitro bridge memory issues
         mergedConfig = extractConfig(transformedConfig)
       }
 
