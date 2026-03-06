@@ -15,6 +15,7 @@ import androidx.media3.session.MediaBrowser
 import androidx.media3.session.SessionToken
 import com.audiobrowser.browser.BrowserConfig
 import com.audiobrowser.browser.BrowserManager
+import com.audiobrowser.browser.handleTrackLoad
 import com.audiobrowser.browser.CallbackException
 import com.audiobrowser.browser.ContentNotFoundException
 import com.audiobrowser.browser.HttpStatusException
@@ -110,6 +111,7 @@ class AudioBrowser : HybridAudioBrowserSpec(), ServiceConnection {
       artwork = null,
       routes = null,
       singleTrack = null,
+      handleTrackLoad = null,
       androidControllerOfflineError = null,
       carPlayUpNextButton = null,
       carPlayNowPlayingButtons = null,
@@ -527,8 +529,10 @@ class AudioBrowser : HybridAudioBrowserSpec(), ServiceConnection {
                 val index = player.tracks.indexOfFirst { it.src == trackId }
                 if (index >= 0) {
                   Timber.d("Queue already from $parentPath, skipping to index $index")
-                  player.skipTo(index)
-                  player.play()
+                  handleTrackLoad(_configuration.handleTrackLoad, track, player.tracks, index.toDouble(), intercepted = {}, defaultBehavior = {
+                    player.skipTo(index)
+                    player.play()
+                  })
                   return@launch
                 }
               }
@@ -541,15 +545,17 @@ class AudioBrowser : HybridAudioBrowserSpec(), ServiceConnection {
                 Timber.d(
                   "Loading expanded queue: ${tracks.size} tracks, starting at index $startIndex"
                 )
-
-                // Replace queue and seek to selected track
-                // Use internal player methods directly to avoid blocking on main thread
-                player.setQueue(tracks, startIndex, sourcePath = parentPath)
-                player.play()
+                handleTrackLoad(_configuration.handleTrackLoad, track, tracks, startIndex.toDouble(), intercepted = {}, defaultBehavior = {
+                  // Replace queue and seek to selected track
+                  // Use internal player methods directly to avoid blocking on main thread
+                  player.setQueue(tracks, startIndex, sourcePath = parentPath)
+                  player.play()
+                })
+                return@launch
               } else {
                 // Fallback: just load the single track
                 Timber.w("Queue expansion failed, loading single track")
-                player.load(track)
+                handleTrackLoad(_configuration.handleTrackLoad, track, arrayOf(track), 0.0, intercepted = {}, defaultBehavior = { player.load(track) })
               }
             }
             // Navigate to browsable track to show browsing UI
@@ -560,7 +566,7 @@ class AudioBrowser : HybridAudioBrowserSpec(), ServiceConnection {
             // If track is playable (has src), load it into player
             track.src != null -> {
               Timber.d("Loading playable track into player: ${track.title}")
-              player.load(track)
+              handleTrackLoad(_configuration.handleTrackLoad, track, arrayOf(track), 0.0, intercepted = {}, defaultBehavior = { player.load(track) })
             }
             else -> {
               throw IllegalArgumentException("Track must have either an 'url' or an 'src' property")

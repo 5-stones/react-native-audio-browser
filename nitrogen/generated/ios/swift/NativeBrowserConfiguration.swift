@@ -18,7 +18,7 @@ public extension NativeBrowserConfiguration {
   /**
    * Create a new instance of `NativeBrowserConfiguration`.
    */
-  init(path: String?, request: TransformableRequestConfig?, media: MediaRequestConfig?, artwork: ArtworkRequestConfig?, routes: [NativeRouteEntry]?, singleTrack: Bool?, androidControllerOfflineError: Bool?, carPlayUpNextButton: Bool?, carPlayNowPlayingButtons: [CarPlayNowPlayingButton]?, formatNavigationError: ((_ params: FormatNavigationErrorParams) -> Promise<FormattedNavigationError?>)?) {
+  init(path: String?, request: TransformableRequestConfig?, media: MediaRequestConfig?, artwork: ArtworkRequestConfig?, routes: [NativeRouteEntry]?, singleTrack: Bool?, handleTrackLoad: ((_ event: TrackLoadEvent) -> Promise<Promise<Void>>)?, androidControllerOfflineError: Bool?, carPlayUpNextButton: Bool?, carPlayNowPlayingButtons: [CarPlayNowPlayingButton]?, formatNavigationError: ((_ params: FormatNavigationErrorParams) -> Promise<FormattedNavigationError?>)?) {
     self.init({ () -> bridge.std__optional_std__string_ in
       if let __unwrappedValue = path {
         return bridge.create_std__optional_std__string_(std.string(__unwrappedValue))
@@ -58,6 +58,15 @@ public extension NativeBrowserConfiguration {
     }(), { () -> bridge.std__optional_bool_ in
       if let __unwrappedValue = singleTrack {
         return bridge.create_std__optional_bool_(__unwrappedValue)
+      } else {
+        return .init()
+      }
+    }(), { () -> bridge.std__optional_std__function_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____const_TrackLoadEvent_____event______ in
+      if let __unwrappedValue = handleTrackLoad {
+        return bridge.create_std__optional_std__function_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____const_TrackLoadEvent_____event______({ () -> bridge.Func_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____TrackLoadEvent in
+          let __closureWrapper = Func_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____TrackLoadEvent(__unwrappedValue)
+          return bridge.create_Func_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____TrackLoadEvent(__closureWrapper.toUnsafe())
+        }())
       } else {
         return .init()
       }
@@ -142,6 +151,44 @@ public extension NativeBrowserConfiguration {
       if bridge.has_value_std__optional_bool_(self.__singleTrack) {
         let __unwrapped = bridge.get_std__optional_bool_(self.__singleTrack)
         return __unwrapped
+      } else {
+        return nil
+      }
+    }()
+  }
+  
+  @inline(__always)
+  var handleTrackLoad: ((_ event: TrackLoadEvent) -> Promise<Promise<Void>>)? {
+    return { () -> ((_ event: TrackLoadEvent) -> Promise<Promise<Void>>)? in
+      if bridge.has_value_std__optional_std__function_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____const_TrackLoadEvent_____event______(self.__handleTrackLoad) {
+        let __unwrapped = bridge.get_std__optional_std__function_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____const_TrackLoadEvent_____event______(self.__handleTrackLoad)
+        return { () -> (TrackLoadEvent) -> Promise<Promise<Void>> in
+          let __wrappedFunction = bridge.wrap_Func_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____TrackLoadEvent(__unwrapped)
+          return { (__event: TrackLoadEvent) -> Promise<Promise<Void>> in
+            let __result = __wrappedFunction.call(__event)
+            return { () -> Promise<Promise<Void>> in
+              let __promise = Promise<Promise<Void>>()
+              let __resolver = { (__result: Promise<Void>) in
+                __promise.resolve(withResult: __result)
+              }
+              let __rejecter = { (__error: Error) in
+                __promise.reject(withError: __error)
+              }
+              let __resolverCpp = { () -> bridge.Func_void_std__shared_ptr_Promise_void__ in
+                let __closureWrapper = Func_void_std__shared_ptr_Promise_void__(__resolver)
+                return bridge.create_Func_void_std__shared_ptr_Promise_void__(__closureWrapper.toUnsafe())
+              }()
+              let __rejecterCpp = { () -> bridge.Func_void_std__exception_ptr in
+                let __closureWrapper = Func_void_std__exception_ptr(__rejecter)
+                return bridge.create_Func_void_std__exception_ptr(__closureWrapper.toUnsafe())
+              }()
+              let __promiseHolder = bridge.wrap_std__shared_ptr_Promise_std__shared_ptr_Promise_void____(__result)
+              __promiseHolder.addOnResolvedListener(__resolverCpp)
+              __promiseHolder.addOnRejectedListener(__rejecterCpp)
+              return __promise
+            }()
+          }
+        }()
       } else {
         return nil
       }

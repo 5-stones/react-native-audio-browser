@@ -12,10 +12,13 @@ import androidx.media3.session.MediaConstants
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionError
 import androidx.media3.session.SessionResult
+import com.audiobrowser.AudioBrowser
+import com.audiobrowser.browser.handleTrackLoad
 import com.audiobrowser.util.BrowserPathHelper
 import com.audiobrowser.util.RatingFactory
 import com.audiobrowser.util.ResolvedTrackFactory
 import com.audiobrowser.util.TrackFactory
+import com.margelo.nitro.audiobrowser.Track
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
@@ -463,6 +466,19 @@ class MediaSessionCallback(private val player: Player) :
     )
 
     return scope.future {
+      val audioBrowser = player.awaitBrowser()
+
+      // Helper: returns the current player state unchanged so Media3 doesn't modify playback
+      fun currentPlayerState(): MediaSession.MediaItemsWithStartPosition {
+        val currentItems = player.tracks.map { TrackFactory.toMedia3(it) }
+        val currentIndex = player.currentIndex ?: 0
+        return MediaSession.MediaItemsWithStartPosition(
+          currentItems,
+          currentIndex,
+          startPositionMs,
+        )
+      }
+
       // Check if this is a single contextual URL that matches the current queue source
       if (mediaItems.size == 1) {
         val mediaId = mediaItems[0].mediaId
@@ -475,33 +491,39 @@ class MediaSessionCallback(private val player: Player) :
             val index = player.tracks.indexOfFirst { it.src == trackId }
             if (index >= 0) {
               Timber.d("Queue already from $parentPath, skipping to index $index")
-              // Return the existing queue items with the new start index
-              val existingItems = player.tracks.map { TrackFactory.toMedia3(it) }
-              return@future MediaSession.MediaItemsWithStartPosition(
-                existingItems,
-                index,
-                startPositionMs,
-              )
+              val track = player.tracks[index]
+              return@future handleTrackLoad(audioBrowser.configuration.handleTrackLoad, track, player.tracks, index.toDouble(), ::currentPlayerState) {
+                // Return the existing queue items with the new start index
+                val existingItems = player.tracks.map { TrackFactory.toMedia3(it) }
+                MediaSession.MediaItemsWithStartPosition(
+                  existingItems,
+                  index,
+                  startPositionMs,
+                )
+              }
             }
           }
         }
       }
 
-      // Wait for browser to be registered if it's not available yet
-      val browserManager = player.awaitBrowser().browserManager
+      val browserManager = audioBrowser.browserManager
       val result =
         browserManager.resolveMediaItemsForPlayback(mediaItems, startIndex, startPositionMs)
 
-      // If this was a contextual URL expansion, track the source path
-      if (mediaItems.size == 1) {
-        val mediaId = mediaItems[0].mediaId
-        if (BrowserPathHelper.isContextual(mediaId)) {
-          val parentPath = BrowserPathHelper.stripTrackId(mediaId)
-          withContext(Dispatchers.Main) { player.queueSourcePath = parentPath }
-        }
-      }
+      val tracks = result.mediaItems.map { TrackFactory.fromMedia3(it) }.toTypedArray()
+      val selectedTrack = tracks.getOrElse(result.startIndex) { tracks.first() }
 
-      result
+      handleTrackLoad(audioBrowser.configuration.handleTrackLoad, selectedTrack, tracks, result.startIndex.toDouble(), ::currentPlayerState) {
+        // If this was a contextual URL expansion, track the source path (only for default behavior)
+        if (mediaItems.size == 1) {
+          val mediaId = mediaItems[0].mediaId
+          if (BrowserPathHelper.isContextual(mediaId)) {
+            val parentPath = BrowserPathHelper.stripTrackId(mediaId)
+            withContext(Dispatchers.Main) { player.queueSourcePath = parentPath }
+          }
+        }
+        result
+      }
     }
   }
 

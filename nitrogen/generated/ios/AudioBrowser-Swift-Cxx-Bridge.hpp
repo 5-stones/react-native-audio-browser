@@ -164,6 +164,8 @@ namespace margelo::nitro::audiobrowser { struct StarRating; }
 namespace margelo::nitro::audiobrowser { struct ThumbsRating; }
 // Forward declaration of `TimedMetadata` to properly resolve imports.
 namespace margelo::nitro::audiobrowser { struct TimedMetadata; }
+// Forward declaration of `TrackLoadEvent` to properly resolve imports.
+namespace margelo::nitro::audiobrowser { struct TrackLoadEvent; }
 // Forward declaration of `TrackMetadata` to properly resolve imports.
 namespace margelo::nitro::audiobrowser { struct TrackMetadata; }
 // Forward declaration of `TrackStyle` to properly resolve imports.
@@ -259,6 +261,7 @@ namespace AudioBrowser { class HybridAudioBrowserSpec_cxx; }
 #include "ThumbsRating.hpp"
 #include "TimedMetadata.hpp"
 #include "Track.hpp"
+#include "TrackLoadEvent.hpp"
 #include "TrackMetadata.hpp"
 #include "TrackStyle.hpp"
 #include "TransformableRequestConfig.hpp"
@@ -1184,6 +1187,112 @@ namespace margelo::nitro::audiobrowser::bridge::swift {
     return optional.value();
   }
   
+  // pragma MARK: std::optional<std::function<std::shared_ptr<Promise<std::shared_ptr<Promise<void>>>>(const TrackLoadEvent& /* event */)>>
+  /**
+   * Specialized version of `std::optional<std::function<std::shared_ptr<Promise<std::shared_ptr<Promise<void>>>>(const TrackLoadEvent& / * event * /)>>`.
+   */
+  using std__optional_std__function_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____const_TrackLoadEvent_____event______ = std::optional<std::function<std::shared_ptr<Promise<std::shared_ptr<Promise<void>>>>(const TrackLoadEvent& /* event */)>>;
+  inline std::optional<std::function<std::shared_ptr<Promise<std::shared_ptr<Promise<void>>>>(const TrackLoadEvent& /* event */)>> create_std__optional_std__function_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____const_TrackLoadEvent_____event______(const std::function<std::shared_ptr<Promise<std::shared_ptr<Promise<void>>>>(const TrackLoadEvent& /* event */)>& value) noexcept {
+    return std::optional<std::function<std::shared_ptr<Promise<std::shared_ptr<Promise<void>>>>(const TrackLoadEvent& /* event */)>>(value);
+  }
+  inline bool has_value_std__optional_std__function_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____const_TrackLoadEvent_____event______(const std::optional<std::function<std::shared_ptr<Promise<std::shared_ptr<Promise<void>>>>(const TrackLoadEvent& /* event */)>>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline std::function<std::shared_ptr<Promise<std::shared_ptr<Promise<void>>>>(const TrackLoadEvent& /* event */)> get_std__optional_std__function_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____const_TrackLoadEvent_____event______(const std::optional<std::function<std::shared_ptr<Promise<std::shared_ptr<Promise<void>>>>(const TrackLoadEvent& /* event */)>>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::function<std::shared_ptr<Promise<std::shared_ptr<Promise<void>>>>(const TrackLoadEvent& /* event */)>
+  /**
+   * Specialized version of `std::function<std::shared_ptr<Promise<std::shared_ptr<Promise<void>>>>(const TrackLoadEvent&)>`.
+   */
+  using Func_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____TrackLoadEvent = std::function<std::shared_ptr<Promise<std::shared_ptr<Promise<void>>>>(const TrackLoadEvent& /* event */)>;
+  /**
+   * Wrapper class for a `std::function<std::shared_ptr<Promise<std::shared_ptr<Promise<void>>>>(const TrackLoadEvent& / * event * /)>`, this can be used from Swift.
+   */
+  class Func_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____TrackLoadEvent_Wrapper final {
+  public:
+    explicit Func_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____TrackLoadEvent_Wrapper(std::function<std::shared_ptr<Promise<std::shared_ptr<Promise<void>>>>(const TrackLoadEvent& /* event */)>&& func): _function(std::make_unique<std::function<std::shared_ptr<Promise<std::shared_ptr<Promise<void>>>>(const TrackLoadEvent& /* event */)>>(std::move(func))) {}
+    inline std::shared_ptr<Promise<std::shared_ptr<Promise<void>>>> call(TrackLoadEvent event) const noexcept {
+      auto __result = _function->operator()(event);
+      return __result;
+    }
+  private:
+    std::unique_ptr<std::function<std::shared_ptr<Promise<std::shared_ptr<Promise<void>>>>(const TrackLoadEvent& /* event */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____TrackLoadEvent create_Func_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____TrackLoadEvent(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____TrackLoadEvent_Wrapper wrap_Func_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____TrackLoadEvent(Func_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____TrackLoadEvent value) noexcept {
+    return Func_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____TrackLoadEvent_Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::shared_ptr<Promise<std::shared_ptr<Promise<void>>>>
+  /**
+   * Specialized version of `std::shared_ptr<Promise<std::shared_ptr<Promise<void>>>>`.
+   */
+  using std__shared_ptr_Promise_std__shared_ptr_Promise_void____ = std::shared_ptr<Promise<std::shared_ptr<Promise<void>>>>;
+  inline std::shared_ptr<Promise<std::shared_ptr<Promise<void>>>> create_std__shared_ptr_Promise_std__shared_ptr_Promise_void____() noexcept {
+    return Promise<std::shared_ptr<Promise<void>>>::create();
+  }
+  inline PromiseHolder<std::shared_ptr<Promise<void>>> wrap_std__shared_ptr_Promise_std__shared_ptr_Promise_void____(std::shared_ptr<Promise<std::shared_ptr<Promise<void>>>> promise) noexcept {
+    return PromiseHolder<std::shared_ptr<Promise<void>>>(std::move(promise));
+  }
+  
+  // pragma MARK: std::function<void(const std::shared_ptr<Promise<void>>& /* result */)>
+  /**
+   * Specialized version of `std::function<void(const std::shared_ptr<Promise<void>>&)>`.
+   */
+  using Func_void_std__shared_ptr_Promise_void__ = std::function<void(const std::shared_ptr<Promise<void>>& /* result */)>;
+  /**
+   * Wrapper class for a `std::function<void(const std::shared_ptr<Promise<void>>& / * result * /)>`, this can be used from Swift.
+   */
+  class Func_void_std__shared_ptr_Promise_void___Wrapper final {
+  public:
+    explicit Func_void_std__shared_ptr_Promise_void___Wrapper(std::function<void(const std::shared_ptr<Promise<void>>& /* result */)>&& func): _function(std::make_unique<std::function<void(const std::shared_ptr<Promise<void>>& /* result */)>>(std::move(func))) {}
+    inline void call(std::shared_ptr<Promise<void>> result) const noexcept {
+      _function->operator()(result);
+    }
+  private:
+    std::unique_ptr<std::function<void(const std::shared_ptr<Promise<void>>& /* result */)>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void_std__shared_ptr_Promise_void__ create_Func_void_std__shared_ptr_Promise_void__(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_std__shared_ptr_Promise_void___Wrapper wrap_Func_void_std__shared_ptr_Promise_void__(Func_void_std__shared_ptr_Promise_void__ value) noexcept {
+    return Func_void_std__shared_ptr_Promise_void___Wrapper(std::move(value));
+  }
+  
+  // pragma MARK: std::shared_ptr<Promise<void>>
+  /**
+   * Specialized version of `std::shared_ptr<Promise<void>>`.
+   */
+  using std__shared_ptr_Promise_void__ = std::shared_ptr<Promise<void>>;
+  inline std::shared_ptr<Promise<void>> create_std__shared_ptr_Promise_void__() noexcept {
+    return Promise<void>::create();
+  }
+  inline PromiseHolder<void> wrap_std__shared_ptr_Promise_void__(std::shared_ptr<Promise<void>> promise) noexcept {
+    return PromiseHolder<void>(std::move(promise));
+  }
+  
+  // pragma MARK: std::function<void()>
+  /**
+   * Specialized version of `std::function<void()>`.
+   */
+  using Func_void = std::function<void()>;
+  /**
+   * Wrapper class for a `std::function<void()>`, this can be used from Swift.
+   */
+  class Func_void_Wrapper final {
+  public:
+    explicit Func_void_Wrapper(std::function<void()>&& func): _function(std::make_unique<std::function<void()>>(std::move(func))) {}
+    inline void call() const noexcept {
+      _function->operator()();
+    }
+  private:
+    std::unique_ptr<std::function<void()>> _function;
+  } SWIFT_NONCOPYABLE;
+  Func_void create_Func_void(void* NON_NULL swiftClosureWrapper) noexcept;
+  inline Func_void_Wrapper wrap_Func_void(Func_void value) noexcept {
+    return Func_void_Wrapper(std::move(value));
+  }
+  
   // pragma MARK: std::optional<std::vector<CarPlayNowPlayingButton>>
   /**
    * Specialized version of `std::optional<std::vector<CarPlayNowPlayingButton>>`.
@@ -1258,40 +1367,6 @@ namespace margelo::nitro::audiobrowser::bridge::swift {
   }
   inline PromiseHolder<std::optional<FormattedNavigationError>> wrap_std__shared_ptr_Promise_std__optional_FormattedNavigationError___(std::shared_ptr<Promise<std::optional<FormattedNavigationError>>> promise) noexcept {
     return PromiseHolder<std::optional<FormattedNavigationError>>(std::move(promise));
-  }
-  
-  // pragma MARK: std::shared_ptr<Promise<void>>
-  /**
-   * Specialized version of `std::shared_ptr<Promise<void>>`.
-   */
-  using std__shared_ptr_Promise_void__ = std::shared_ptr<Promise<void>>;
-  inline std::shared_ptr<Promise<void>> create_std__shared_ptr_Promise_void__() noexcept {
-    return Promise<void>::create();
-  }
-  inline PromiseHolder<void> wrap_std__shared_ptr_Promise_void__(std::shared_ptr<Promise<void>> promise) noexcept {
-    return PromiseHolder<void>(std::move(promise));
-  }
-  
-  // pragma MARK: std::function<void()>
-  /**
-   * Specialized version of `std::function<void()>`.
-   */
-  using Func_void = std::function<void()>;
-  /**
-   * Wrapper class for a `std::function<void()>`, this can be used from Swift.
-   */
-  class Func_void_Wrapper final {
-  public:
-    explicit Func_void_Wrapper(std::function<void()>&& func): _function(std::make_unique<std::function<void()>>(std::move(func))) {}
-    inline void call() const noexcept {
-      _function->operator()();
-    }
-  private:
-    std::unique_ptr<std::function<void()>> _function;
-  } SWIFT_NONCOPYABLE;
-  Func_void create_Func_void(void* NON_NULL swiftClosureWrapper) noexcept;
-  inline Func_void_Wrapper wrap_Func_void(Func_void value) noexcept {
-    return Func_void_Wrapper(std::move(value));
   }
   
   // pragma MARK: std::optional<PartialAndroidSetupPlayerOptions>

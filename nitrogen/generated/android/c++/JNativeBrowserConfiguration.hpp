@@ -36,6 +36,7 @@
 #include "JFunc_std__shared_ptr_Promise_std__shared_ptr_Promise_RequestConfig_____Track.hpp"
 #include "JFunc_std__shared_ptr_Promise_std__shared_ptr_Promise_std__variant_ResolvedTrack__BrowseError______BrowserSourceCallbackParam.hpp"
 #include "JFunc_std__shared_ptr_Promise_std__shared_ptr_Promise_std__vector_Track______SearchParams.hpp"
+#include "JFunc_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____TrackLoadEvent.hpp"
 #include "JHttpMethod.hpp"
 #include "JImageContext.hpp"
 #include "JImageQueryParams.hpp"
@@ -51,6 +52,7 @@
 #include "JSearchMode.hpp"
 #include "JSearchParams.hpp"
 #include "JTrack.hpp"
+#include "JTrackLoadEvent.hpp"
 #include "JTrackStyle.hpp"
 #include "JTransformableRequestConfig.hpp"
 #include "MediaRequestConfig.hpp"
@@ -63,10 +65,12 @@
 #include "SearchMode.hpp"
 #include "SearchParams.hpp"
 #include "Track.hpp"
+#include "TrackLoadEvent.hpp"
 #include "TrackStyle.hpp"
 #include "TransformableRequestConfig.hpp"
 #include <NitroModules/JNICallable.hpp>
 #include <NitroModules/JPromise.hpp>
+#include <NitroModules/JUnit.hpp>
 #include <NitroModules/Promise.hpp>
 #include <functional>
 #include <optional>
@@ -106,6 +110,8 @@ namespace margelo::nitro::audiobrowser {
       jni::local_ref<jni::JArrayClass<JNativeRouteEntry>> routes = this->getFieldValue(fieldRoutes);
       static const auto fieldSingleTrack = clazz->getField<jni::JBoolean>("singleTrack");
       jni::local_ref<jni::JBoolean> singleTrack = this->getFieldValue(fieldSingleTrack);
+      static const auto fieldHandleTrackLoad = clazz->getField<JFunc_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____TrackLoadEvent::javaobject>("handleTrackLoad");
+      jni::local_ref<JFunc_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____TrackLoadEvent::javaobject> handleTrackLoad = this->getFieldValue(fieldHandleTrackLoad);
       static const auto fieldAndroidControllerOfflineError = clazz->getField<jni::JBoolean>("androidControllerOfflineError");
       jni::local_ref<jni::JBoolean> androidControllerOfflineError = this->getFieldValue(fieldAndroidControllerOfflineError);
       static const auto fieldCarPlayUpNextButton = clazz->getField<jni::JBoolean>("carPlayUpNextButton");
@@ -130,6 +136,15 @@ namespace margelo::nitro::audiobrowser {
           return __vector;
         }()) : std::nullopt,
         singleTrack != nullptr ? std::make_optional(static_cast<bool>(singleTrack->value())) : std::nullopt,
+        handleTrackLoad != nullptr ? std::make_optional([&]() -> std::function<std::shared_ptr<Promise<std::shared_ptr<Promise<void>>>>(const TrackLoadEvent& /* event */)> {
+          if (handleTrackLoad->isInstanceOf(JFunc_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____TrackLoadEvent_cxx::javaClassStatic())) [[likely]] {
+            auto downcast = jni::static_ref_cast<JFunc_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____TrackLoadEvent_cxx::javaobject>(handleTrackLoad);
+            return downcast->cthis()->getFunction();
+          } else {
+            auto handleTrackLoadRef = jni::make_global(handleTrackLoad);
+            return JNICallable<JFunc_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____TrackLoadEvent, std::shared_ptr<Promise<std::shared_ptr<Promise<void>>>>(TrackLoadEvent)>(std::move(handleTrackLoadRef));
+          }
+        }()) : std::nullopt,
         androidControllerOfflineError != nullptr ? std::make_optional(static_cast<bool>(androidControllerOfflineError->value())) : std::nullopt,
         carPlayUpNextButton != nullptr ? std::make_optional(static_cast<bool>(carPlayUpNextButton->value())) : std::nullopt,
         carPlayNowPlayingButtons != nullptr ? std::make_optional([&]() {
@@ -160,7 +175,7 @@ namespace margelo::nitro::audiobrowser {
      */
     [[maybe_unused]]
     static jni::local_ref<JNativeBrowserConfiguration::javaobject> fromCpp(const NativeBrowserConfiguration& value) {
-      using JSignature = JNativeBrowserConfiguration(jni::alias_ref<jni::JString>, jni::alias_ref<JTransformableRequestConfig>, jni::alias_ref<JMediaRequestConfig>, jni::alias_ref<JArtworkRequestConfig>, jni::alias_ref<jni::JArrayClass<JNativeRouteEntry>>, jni::alias_ref<jni::JBoolean>, jni::alias_ref<jni::JBoolean>, jni::alias_ref<jni::JBoolean>, jni::alias_ref<jni::JArrayClass<JCarPlayNowPlayingButton>>, jni::alias_ref<JFunc_std__shared_ptr_Promise_std__optional_FormattedNavigationError____FormatNavigationErrorParams::javaobject>);
+      using JSignature = JNativeBrowserConfiguration(jni::alias_ref<jni::JString>, jni::alias_ref<JTransformableRequestConfig>, jni::alias_ref<JMediaRequestConfig>, jni::alias_ref<JArtworkRequestConfig>, jni::alias_ref<jni::JArrayClass<JNativeRouteEntry>>, jni::alias_ref<jni::JBoolean>, jni::alias_ref<JFunc_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____TrackLoadEvent::javaobject>, jni::alias_ref<jni::JBoolean>, jni::alias_ref<jni::JBoolean>, jni::alias_ref<jni::JArrayClass<JCarPlayNowPlayingButton>>, jni::alias_ref<JFunc_std__shared_ptr_Promise_std__optional_FormattedNavigationError____FormatNavigationErrorParams::javaobject>);
       static const auto clazz = javaClassStatic();
       static const auto create = clazz->getStaticMethod<JSignature>("fromCpp");
       return create(
@@ -180,6 +195,7 @@ namespace margelo::nitro::audiobrowser {
           return __array;
         }() : nullptr,
         value.singleTrack.has_value() ? jni::JBoolean::valueOf(value.singleTrack.value()) : nullptr,
+        value.handleTrackLoad.has_value() ? JFunc_std__shared_ptr_Promise_std__shared_ptr_Promise_void_____TrackLoadEvent_cxx::fromCpp(value.handleTrackLoad.value()) : nullptr,
         value.androidControllerOfflineError.has_value() ? jni::JBoolean::valueOf(value.androidControllerOfflineError.value()) : nullptr,
         value.carPlayUpNextButton.has_value() ? jni::JBoolean::valueOf(value.carPlayUpNextButton.value()) : nullptr,
         value.carPlayNowPlayingButtons.has_value() ? [&]() {

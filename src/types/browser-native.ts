@@ -11,6 +11,7 @@ import type {
   BrowserSourceCallback,
   CarPlayNowPlayingButton,
   FormatNavigationErrorCallback,
+  HandleTrackLoadCallback,
   MediaRequestConfig,
   SearchSourceCallback,
   TransformableRequestConfig
@@ -57,6 +58,7 @@ export interface NativeBrowserConfiguration {
 
   // Behavior
   singleTrack?: boolean
+  handleTrackLoad?: HandleTrackLoadCallback
   androidControllerOfflineError?: boolean
 
   // CarPlay options

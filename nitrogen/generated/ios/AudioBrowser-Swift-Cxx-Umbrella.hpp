@@ -170,6 +170,8 @@ namespace margelo::nitro::audiobrowser { struct StarRating; }
 namespace margelo::nitro::audiobrowser { struct ThumbsRating; }
 // Forward declaration of `TimedMetadata` to properly resolve imports.
 namespace margelo::nitro::audiobrowser { struct TimedMetadata; }
+// Forward declaration of `TrackLoadEvent` to properly resolve imports.
+namespace margelo::nitro::audiobrowser { struct TrackLoadEvent; }
 // Forward declaration of `TrackMetadata` to properly resolve imports.
 namespace margelo::nitro::audiobrowser { struct TrackMetadata; }
 // Forward declaration of `TrackStyle` to properly resolve imports.
@@ -264,6 +266,7 @@ namespace margelo::nitro::audiobrowser { struct UpdateOptions; }
 #include "ThumbsRating.hpp"
 #include "TimedMetadata.hpp"
 #include "Track.hpp"
+#include "TrackLoadEvent.hpp"
 #include "TrackMetadata.hpp"
 #include "TrackStyle.hpp"
 #include "TransformableRequestConfig.hpp"

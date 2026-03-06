@@ -568,6 +568,28 @@ public final class RNABCarPlayController: NSObject {
 
   // MARK: - Selection Handling
 
+  /// Centralizes handleTrackLoad interception for CarPlay selection paths.
+  /// If handleTrackLoad is set on config, awaits it (intercepted). Otherwise runs defaultBehavior.
+  /// Always fires showNowPlaying and completion afterward, even if the handler throws.
+  /// This is intentional: the completion handler must be called to dismiss the CarPlay list
+  /// item spinner, and transitioning to Now Playing avoids leaving the UI in a stuck state.
+  @discardableResult
+  private func handleLoadAsync(
+    track: Track, queue: [Track], startIndex: Double,
+    audioBrowser: HybridAudioBrowser,
+    completion: @escaping () -> Void,
+    defaultBehavior: () async -> Void
+  ) async -> Bool {
+    let event = TrackLoadEvent(track: track, queue: queue, startIndex: startIndex)
+    if await audioBrowser.browserManager.config.awaitTrackLoadHandler(event: event) {
+      await MainActor.run { self.showNowPlaying(); completion() }
+      return true
+    }
+    await defaultBehavior()
+    await MainActor.run { self.showNowPlaying(); completion() }
+    return false
+  }
+
   private func handleItemSelection(track: Track, completion: @escaping () -> Void) {
     logger.info("Selected track: \(track.title)")
 
@@ -595,10 +617,12 @@ public final class RNABCarPlayController: NSObject {
          parentPath == player?.queueSourcePath,
          let index = player?.tracks.firstIndex(where: { $0.src == trackId })
       {
-        logger.debug("Queue already from \(parentPath), skipping to index \(index)")
-        try? player?.skipTo(index, playWhenReady: true)
-        showNowPlaying()
-        completion()
+        let queue = player?.tracks ?? []
+        Task {
+          await handleLoadAsync(track: track, queue: queue, startIndex: Double(index), audioBrowser: audioBrowser, completion: completion) {
+            try? player?.skipTo(index, playWhenReady: true)
+          }
+        }
         return
       }
 
@@ -607,42 +631,41 @@ public final class RNABCarPlayController: NSObject {
           // Expand the queue from the contextual URL
           if let expanded = try await audioBrowser.browserManager.expandQueueFromContextualUrl(url) {
             let (tracks, startIndex) = expanded
-
-            await MainActor.run {
-              // Replace queue and start at the selected track
-              audioBrowser.getPlayer()?.setQueue(tracks, initialIndex: startIndex, playWhenReady: true, sourcePath: parentPath)
-
-              // Show now playing template
-              self.showNowPlaying()
-              completion()
+            await handleLoadAsync(track: track, queue: tracks, startIndex: Double(startIndex), audioBrowser: audioBrowser, completion: completion) {
+              await MainActor.run {
+                // Replace queue and start at the selected track
+                audioBrowser.getPlayer()?.setQueue(tracks, initialIndex: startIndex, playWhenReady: true, sourcePath: parentPath)
+              }
             }
           } else {
             // Fallback: just load the single track
-            await MainActor.run {
-              try? audioBrowser.load(track: track)
-              try? audioBrowser.play()
-              self.showNowPlaying()
-              completion()
+            await handleLoadAsync(track: track, queue: [track], startIndex: 0, audioBrowser: audioBrowser, completion: completion) {
+              await MainActor.run {
+                try? audioBrowser.load(track: track)
+                try? audioBrowser.play()
+              }
             }
           }
         } catch {
           logger.error("Error expanding queue: \(error.localizedDescription)")
-          await MainActor.run {
-            try? audioBrowser.load(track: track)
-            try? audioBrowser.play()
-            self.showNowPlaying()
-            completion()
+          await handleLoadAsync(track: track, queue: [track], startIndex: 0, audioBrowser: audioBrowser, completion: completion) {
+            await MainActor.run {
+              try? audioBrowser.load(track: track)
+              try? audioBrowser.play()
+            }
           }
         }
       }
     }
     // If track has src, it's playable - load it
     else if track.src != nil {
-      Task { @MainActor in
-        try? audioBrowser.load(track: track)
-        try? audioBrowser.play()
-        showNowPlaying()
-        completion()
+      Task {
+        await handleLoadAsync(track: track, queue: [track], startIndex: 0, audioBrowser: audioBrowser, completion: completion) {
+          await MainActor.run {
+            try? audioBrowser.load(track: track)
+            try? audioBrowser.play()
+          }
+        }
       }
     }
     // If track has url, it's browsable - navigate to it

@@ -15,8 +15,8 @@ const androidWorkaround = async () => {
    'nitrogen/generated/android',
    'AudioBrowserOnLoad.cpp'
  )
- 
- 
+
+
  const str = await readFile(androidOnLoadFile, { encoding: 'utf8' })
  await writeFile(androidOnLoadFile, str.replace(/margelo\/nitro\//g, ''))
 }
