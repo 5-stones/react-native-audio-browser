@@ -220,6 +220,7 @@ public class HybridAudioBrowser: HybridAudioBrowserSpec, @unchecked Sendable {
       setupVolumeObserver()
     }
   }
+
   public var onIosOutputChanged: (IosOutput) -> Void = { _ in } {
     didSet {
       setupRouteChangeObserver()
@@ -985,7 +986,7 @@ public class HybridAudioBrowser: HybridAudioBrowserSpec, @unchecked Sendable {
     routeChangeObserver = NotificationCenter.default.addObserver(
       forName: AVAudioSession.routeChangeNotification,
       object: nil,
-      queue: .main
+      queue: .main,
     ) { [weak self] _ in
       guard let self, let output = self.getCurrentOutput() else { return }
       self.onIosOutputChanged(output)
@@ -1034,15 +1035,21 @@ public class HybridAudioBrowser: HybridAudioBrowserSpec, @unchecked Sendable {
       guard let windowScene = UIApplication.shared.connectedScenes
         .compactMap({ $0 as? UIWindowScene })
         .first(where: { $0.activationState == .foregroundActive }),
-        let window = windowScene.windows.first(where: { $0.isKeyWindow })
+        let window = windowScene.windows.first(where: { $0.isKeyWindow }),
+        var topController = window.rootViewController
       else {
         self?.logger.debug("openIosOutputPicker: Could not find active window scene")
         return
       }
 
+      // Walk up to the topmost presented view controller
+      while let presented = topController.presentedViewController {
+        topController = presented
+      }
+
       let routePicker = AVRoutePickerView(frame: .zero)
       routePicker.isHidden = true
-      window.addSubview(routePicker)
+      topController.view.addSubview(routePicker)
 
       // Find the button inside AVRoutePickerView and trigger it
       for subview in routePicker.subviews {
