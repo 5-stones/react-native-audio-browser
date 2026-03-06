@@ -263,7 +263,7 @@ final class BrowserManager: @unchecked Sendable {
     self.path = path
     content = nil // Clear for loading state
 
-    let resolved = try await resolve(path, useCache: false)
+    let resolved = try await resolve(path)
 
     // Only apply result if this is still the current navigation
     guard navigationId == currentNavigationId else { return }
