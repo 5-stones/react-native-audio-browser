@@ -887,11 +887,10 @@ final class BrowserManager: @unchecked Sendable {
   /// - Returns: ImageSource ready for image loading, or nil if no artwork
   func resolveArtworkUrl(track: Track, perRouteConfig: ArtworkRequestConfig?, imageContext: ImageContext? = nil) async -> ImageSource? {
     if let artwork = track.artwork, SFSymbolRenderer.isSFSymbol(artwork) {
-      let canvasSize: CGSize
-      if let w = imageContext?.width, let h = imageContext?.height {
-        canvasSize = CGSize(width: w, height: h)
+      let canvasSize: CGSize = if let w = imageContext?.width, let h = imageContext?.height {
+        CGSize(width: w, height: h)
       } else {
-        canvasSize = SFSymbolRenderer.defaultCanvasSize
+        SFSymbolRenderer.defaultCanvasSize
       }
       if let uri = await SFSymbolRenderer.shared.render(artwork, canvasSize: canvasSize) {
         return ImageSource(uri: uri, method: nil, headers: nil, body: nil)

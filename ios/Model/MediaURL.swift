@@ -45,7 +45,8 @@ struct MediaURL {
       allowed.formUnion(.urlQueryAllowed)
       allowed.formUnion(.urlFragmentAllowed)
       if let encoded = string.addingPercentEncoding(withAllowedCharacters: allowed),
-         let url = URL(string: encoded) {
+         let url = URL(string: encoded)
+      {
         return url
       }
     }

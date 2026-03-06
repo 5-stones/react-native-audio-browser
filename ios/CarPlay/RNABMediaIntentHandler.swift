@@ -53,7 +53,7 @@ class RNABMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
     browser.handlePlayMediaIntent(searchTerm: searchTerm) { success in
       completion(INPlayMediaIntentResponse(
         code: success ? .success : .failure,
-        userActivity: nil
+        userActivity: nil,
       ))
     }
   }

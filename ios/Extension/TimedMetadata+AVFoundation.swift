@@ -36,7 +36,7 @@ extension TimedMetadata {
       artist: nil,
       album: nil,
       date: nil,
-      genre: nil
+      genre: nil,
     )
   }
 
@@ -57,9 +57,9 @@ extension TimedMetadata {
       case .id3MetadataAlbumTitle, .id3MetadataOriginalAlbumTitle:
         album = item.stringValue
       case .id3MetadataRecordingTime:
-        date = item.stringValue  // TDRC takes precedence (ID3v2.4, more precise)
+        date = item.stringValue // TDRC takes precedence (ID3v2.4, more precise)
       case .id3MetadataYear:
-        date = date ?? item.stringValue  // TYER only if TDRC not found (ID3v2.3)
+        date = date ?? item.stringValue // TYER only if TDRC not found (ID3v2.3)
       case .id3MetadataContentType:
         genre = item.stringValue
       default:
@@ -73,7 +73,7 @@ extension TimedMetadata {
       artist: artist,
       album: album,
       date: date,
-      genre: genre
+      genre: genre,
     )
   }
 
@@ -120,7 +120,7 @@ extension TimedMetadata {
       artist: artist,
       album: album,
       date: date,
-      genre: genre
+      genre: genre,
     )
   }
 }

@@ -329,7 +329,7 @@ public final class RNABCarPlayController: NSObject {
     template.assistantCellConfiguration = CPAssistantCellConfiguration(
       position: cellPosition,
       visibility: .always,
-      assistantAction: .playMedia
+      assistantAction: .playMedia,
     )
   }
 
@@ -457,14 +457,13 @@ public final class RNABCarPlayController: NSObject {
     let maxImages = CPMaximumNumberOfGridImages
     let visibleItems = Array(imageRowItems.prefix(maxImages))
     let placeholders = visibleItems.map { _ in placeholderImage ?? UIImage() }
-    let titles = visibleItems.map { $0.title }
+    let titles = visibleItems.map(\.title)
 
     // Use imageTitles variant on iOS 17.4+ to show titles below each thumbnail
-    let item: CPListImageRowItem
-    if #available(iOS 17.4, *) {
-      item = CPListImageRowItem(text: track.title, images: placeholders, imageTitles: titles)
+    let item = if #available(iOS 17.4, *) {
+      CPListImageRowItem(text: track.title, images: placeholders, imageTitles: titles)
     } else {
-      item = CPListImageRowItem(text: track.title, images: placeholders)
+      CPListImageRowItem(text: track.title, images: placeholders)
     }
 
     // Store track info for identification
@@ -1170,7 +1169,7 @@ public final class RNABCarPlayController: NSObject {
       return fmt
     }())
 
-    return renderer.image { context in
+    return renderer.image { _ in
       let bgColor = backgroundColor ?? (tintColor == .white ? UIColor(white: 0.15, alpha: 1) : UIColor(white: 0.92, alpha: 1))
       bgColor.setFill()
       UIRectFill(CGRect(origin: .zero, size: canvasSize))

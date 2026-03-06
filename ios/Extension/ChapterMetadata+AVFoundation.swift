@@ -30,7 +30,7 @@ extension ChapterMetadata {
         startTime: startTime,
         endTime: endTime,
         title: title,
-        url: url
+        url: url,
       )
     }
   }

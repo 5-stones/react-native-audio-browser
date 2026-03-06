@@ -58,7 +58,7 @@ final class SFSymbolRenderer: @unchecked Sendable {
       return fmt
     }())
 
-    let pngData = renderer.pngData { context in
+    let pngData = renderer.pngData { _ in
       if let backgroundColor {
         backgroundColor.setFill()
         UIRectFill(CGRect(origin: .zero, size: canvasSize))

@@ -122,7 +122,7 @@ extension TrackMetadata {
       mediaType: nil,
       creationDate: creationDate,
       creationYear: creationYear,
-      url: nil
+      url: nil,
     )
   }
 }
