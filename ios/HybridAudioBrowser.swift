@@ -28,7 +28,7 @@ public class HybridAudioBrowser: HybridAudioBrowserSpec, @unchecked Sendable {
 
   private var player: TrackPlayer?
   private let networkMonitor = NetworkMonitor()
-  nonisolated(unsafe) let browserManager = BrowserManager()
+  let browserManager = BrowserManager()
   private var volumeObservation: NSKeyValueObservation?
   private var routeChangeObserver: NSObjectProtocol?
   private var nowPlayingOverride: NowPlayingUpdate?
