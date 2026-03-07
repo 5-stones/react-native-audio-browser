@@ -4,7 +4,7 @@ import Foundation
 /**
  Observes player item notifications and invokes callbacks passed at initialization.
  */
-class PlayerItemNotificationObserver: @unchecked Sendable {
+@MainActor class PlayerItemNotificationObserver {
   private let notificationCenter: NotificationCenter = .default
 
   private(set) weak var observingAVItem: AVPlayerItem?
@@ -19,10 +19,6 @@ class PlayerItemNotificationObserver: @unchecked Sendable {
   ) {
     self.onDidPlayToEndTime = onDidPlayToEndTime
     self.onFailedToPlayToEndTime = onFailedToPlayToEndTime
-  }
-
-  deinit {
-    stopObservingCurrentItem()
   }
 
   /**
@@ -70,14 +66,14 @@ class PlayerItemNotificationObserver: @unchecked Sendable {
     isObserving = false
   }
 
-  @objc private func avItemDidPlayToEndTime() {
-    Task { @MainActor in onDidPlayToEndTime() }
+  @objc nonisolated private func avItemDidPlayToEndTime() {
+    Task { @MainActor in self.onDidPlayToEndTime() }
   }
 
-  @objc private func avItemFailedToPlayToEndTime(_ notification: Notification) {
+  @objc nonisolated private func avItemFailedToPlayToEndTime(_ notification: Notification) {
     // Extract the error from the notification's userInfo
     // AVPlayerItemFailedToPlayToEndTimeErrorKey contains the actual error
     let error = notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error
-    Task { @MainActor in onFailedToPlayToEndTime(error) }
+    Task { @MainActor in self.onFailedToPlayToEndTime(error) }
   }
 }

@@ -5,7 +5,7 @@ import Foundation
  Observes player state changes and invokes callbacks passed at initialization.
  Uses modern block-based KVO for type-safe observation with automatic cleanup.
  */
-final class PlayerStateObserver: @unchecked Sendable {
+@MainActor final class PlayerStateObserver {
   private var observations: [NSKeyValueObservation] = []
 
   weak var avPlayer: AVPlayer? {
@@ -23,10 +23,6 @@ final class PlayerStateObserver: @unchecked Sendable {
   ) {
     self.onStatusChange = onStatusChange
     self.onTimeControlStatusChange = onTimeControlStatusChange
-  }
-
-  deinit {
-    stopObserving()
   }
 
   /**

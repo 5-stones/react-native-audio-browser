@@ -702,7 +702,7 @@ class TrackPlayer {
    - parameter seconds: The time to seek to.
    - parameter completion: Called when the seek operation completes. The Bool parameter indicates whether the seek finished successfully (true) or was interrupted/deferred (false).
    */
-  func seekTo(_ seconds: TimeInterval, completion: @escaping @Sendable (Bool) -> Void) {
+  func seekTo(_ seconds: TimeInterval, completion: @escaping @MainActor (Bool) -> Void) {
     // If a track is currently being loaded asynchronously, defer the seek until it's ready.
     if state == .loading {
       loadSeekCoordinator.capture(position: seconds)
@@ -716,8 +716,8 @@ class TrackPlayer {
         .seek(to: time, toleranceBefore: CMTime.zero, toleranceAfter: CMTime.zero) { [weak self] finished in
           Task { @MainActor in
             self?.handleSeekCompleted(to: Double(seekSeconds), didFinish: finished)
+            completion(finished)
           }
-          completion(finished)
         }
     } else {
       // No track loaded and not loading - seek fails immediately
@@ -1562,11 +1562,7 @@ class TrackPlayer {
 
   func replay() {
     seekTo(0) { [weak self] succeeded in
-      if succeeded {
-        Task { @MainActor in
-          self?.play()
-        }
-      }
+      if succeeded { self?.play() }
     }
   }
 

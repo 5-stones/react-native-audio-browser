@@ -4,7 +4,7 @@ import Foundation
 /**
  Observes time-based player events and invokes callbacks passed at initialization.
  */
-class PlayerTimeObserver: @unchecked Sendable {
+@MainActor class PlayerTimeObserver {
   /// The time to use as start boundary time. Cannot be zero.
   private static let startBoundaryTime: CMTime = .init(value: 1, timescale: 1000)
 
@@ -40,11 +40,6 @@ class PlayerTimeObserver: @unchecked Sendable {
     self.periodicObserverTimeInterval = periodicObserverTimeInterval
     self.onAudioDidStart = onAudioDidStart
     self.onSecondElapsed = onSecondElapsed
-  }
-
-  deinit {
-    unregisterForPeriodicEvents()
-    unregisterForBoundaryTimeEvents()
   }
 
   /**

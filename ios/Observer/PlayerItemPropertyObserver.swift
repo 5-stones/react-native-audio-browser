@@ -9,7 +9,7 @@ extension AVTimedMetadataGroup: @retroactive @unchecked Sendable {}
  Observes player item property changes and invokes callbacks passed at initialization.
  Uses modern block-based KVO for type-safe observation with automatic cleanup.
  */
-final class PlayerItemPropertyObserver: NSObject, @unchecked Sendable {
+@MainActor final class PlayerItemPropertyObserver: NSObject {
   private var observations: [NSKeyValueObservation] = []
   private var currentMetadataOutput: AVPlayerItemMetadataOutput?
 
@@ -32,10 +32,6 @@ final class PlayerItemPropertyObserver: NSObject, @unchecked Sendable {
     self.onPlaybackLikelyToKeepUpUpdate = onPlaybackLikelyToKeepUpUpdate
     self.onStatusChange = onStatusChange
     self.onTimedMetadataReceived = onTimedMetadataReceived
-  }
-
-  deinit {
-    stopObservingCurrentItem()
   }
 
   /**
@@ -81,10 +77,7 @@ final class PlayerItemPropertyObserver: NSObject, @unchecked Sendable {
     observations.removeAll()
 
     if let observingAVItem {
-      // removeAllMetadataOutputs is MainActor-isolated; this observer is used from main thread
-      MainActor.assumeIsolated {
-        observingAVItem.removeAllMetadataOutputs()
-      }
+      observingAVItem.removeAllMetadataOutputs()
     }
 
     observingAVItem = nil
@@ -93,14 +86,16 @@ final class PlayerItemPropertyObserver: NSObject, @unchecked Sendable {
 }
 
 extension PlayerItemPropertyObserver: AVPlayerItemMetadataOutputPushDelegate {
-  func metadataOutput(
+  nonisolated func metadataOutput(
     _ output: AVPlayerItemMetadataOutput,
     didOutputTimedMetadataGroups groups: [AVTimedMetadataGroup],
     from _: AVPlayerItemTrack?,
   ) {
-    if output == currentMetadataOutput {
-      // Delegate is called on main thread (queue: .main), so we can assume isolation
-      MainActor.assumeIsolated { onTimedMetadataReceived(groups) }
+    // Delegate is called on main thread (queue: .main), so we can assume isolation
+    MainActor.assumeIsolated {
+      if output == currentMetadataOutput {
+        onTimedMetadataReceived(groups)
+      }
     }
   }
 }
