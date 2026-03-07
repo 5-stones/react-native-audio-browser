@@ -29,13 +29,13 @@ class PlayerTimeObserver: @unchecked Sendable {
     }
   }
 
-  private let onAudioDidStart: @Sendable () -> Void
-  private let onSecondElapsed: @Sendable (Double) -> Void
+  private let onAudioDidStart: @MainActor () -> Void
+  private let onSecondElapsed: @MainActor (Double) -> Void
 
   init(
     periodicObserverTimeInterval: CMTime,
-    onAudioDidStart: @escaping @Sendable () -> Void,
-    onSecondElapsed: @escaping @Sendable (Double) -> Void,
+    onAudioDidStart: @escaping @MainActor () -> Void,
+    onSecondElapsed: @escaping @MainActor (Double) -> Void,
   ) {
     self.periodicObserverTimeInterval = periodicObserverTimeInterval
     self.onAudioDidStart = onAudioDidStart
@@ -61,7 +61,7 @@ class PlayerTimeObserver: @unchecked Sendable {
       },
       queue: nil,
       using: { [weak self] in
-        self?.onAudioDidStart()
+        Task { @MainActor in self?.onAudioDidStart() }
       },
     )
   }
@@ -91,7 +91,8 @@ class PlayerTimeObserver: @unchecked Sendable {
       forInterval: periodicObserverTimeInterval,
       queue: nil,
       using: { [weak self] time in
-        self?.onSecondElapsed(time.seconds)
+        let seconds = time.seconds
+        Task { @MainActor in self?.onSecondElapsed(seconds) }
       },
     )
   }

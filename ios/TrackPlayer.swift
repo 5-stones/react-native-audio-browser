@@ -263,41 +263,41 @@ class TrackPlayer {
 
   private lazy var playerObserver: PlayerStateObserver = .init(
     onStatusChange: { [weak self] status in
-      Task { @MainActor in self?.avPlayerStatusDidChange(status) }
+      self?.avPlayerStatusDidChange(status)
     },
     onTimeControlStatusChange: { [weak self] status in
-      Task { @MainActor in self?.avPlayerDidChangeTimeControlStatus(status) }
+      self?.avPlayerDidChangeTimeControlStatus(status)
     },
   )
 
   private lazy var playerTimeObserver: PlayerTimeObserver = .init(
     periodicObserverTimeInterval: CMTime(seconds: 1, preferredTimescale: 1000),
     onAudioDidStart: { [weak self] in
-      Task { @MainActor in self?.audioDidStart() }
+      self?.audioDidStart()
     },
     onSecondElapsed: { [weak self] seconds in
-      Task { @MainActor in self?.setNowPlayingCurrentTime(seconds: seconds) }
+      self?.setNowPlayingCurrentTime(seconds: seconds)
     },
   )
 
   private lazy var playerItemNotificationObserver: PlayerItemNotificationObserver = .init(
     onDidPlayToEndTime: { [weak self] in
-      Task { @MainActor in self?.handleTrackDidPlayToEndTime() }
+      self?.handleTrackDidPlayToEndTime()
     },
     onFailedToPlayToEndTime: { [weak self] error in
-      Task { @MainActor in self?.handleItemFailedToPlayToEndTime(error: error) }
+      self?.handleItemFailedToPlayToEndTime(error: error)
     },
   )
 
   private lazy var playerItemObserver: PlayerItemPropertyObserver = .init(
     onDurationUpdate: { [weak self] duration in
-      Task { @MainActor in self?.callbacks?.playerDidUpdateDuration(duration) }
+      self?.callbacks?.playerDidUpdateDuration(duration)
     },
     onPlaybackLikelyToKeepUpUpdate: { [weak self] isLikely in
-      Task { @MainActor in self?.avItemDidUpdatePlaybackLikelyToKeepUp(isLikely) }
+      self?.avItemDidUpdatePlaybackLikelyToKeepUp(isLikely)
     },
     onStatusChange: { [weak self] status, error in
-      Task { @MainActor in self?.avItemStatusDidChange(status, error: error) }
+      self?.avItemStatusDidChange(status, error: error)
     },
     onTimedMetadataReceived: { [weak self] groups in
       self?.callbacks?.playerDidReceiveTimedMetadata(groups)
@@ -1249,7 +1249,7 @@ class TrackPlayer {
   func avItemDidUpdatePlaybackLikelyToKeepUp(_ playbackLikelyToKeepUp: Bool) {
     guard playbackLikelyToKeepUp else { return }
 
-    // KVO callbacks are dispatched via Task { @MainActor }, so a stale callback
+    // KVO callbacks are dispatched to MainActor asynchronously, so a stale callback
     // from a previous AVPlayerItem can arrive after the item was replaced/cleared.
     // Ignore these — there's nothing meaningful to do without a loaded item.
     guard avPlayer.currentItem != nil else { return }

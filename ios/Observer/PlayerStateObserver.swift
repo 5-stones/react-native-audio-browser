@@ -14,12 +14,12 @@ final class PlayerStateObserver: @unchecked Sendable {
     }
   }
 
-  private let onStatusChange: @Sendable (AVPlayer.Status) -> Void
-  private let onTimeControlStatusChange: @Sendable (AVPlayer.TimeControlStatus) -> Void
+  private let onStatusChange: @MainActor (AVPlayer.Status) -> Void
+  private let onTimeControlStatusChange: @MainActor (AVPlayer.TimeControlStatus) -> Void
 
   init(
-    onStatusChange: @escaping @Sendable (AVPlayer.Status) -> Void,
-    onTimeControlStatusChange: @escaping @Sendable (AVPlayer.TimeControlStatus) -> Void,
+    onStatusChange: @escaping @MainActor (AVPlayer.Status) -> Void,
+    onTimeControlStatusChange: @escaping @MainActor (AVPlayer.TimeControlStatus) -> Void,
   ) {
     self.onStatusChange = onStatusChange
     self.onTimeControlStatusChange = onTimeControlStatusChange
@@ -38,10 +38,12 @@ final class PlayerStateObserver: @unchecked Sendable {
 
     observations = [
       avPlayer.observe(\.status, options: [.new, .initial]) { [weak self] player, _ in
-        self?.onStatusChange(player.status)
+        let status = player.status
+        Task { @MainActor in self?.onStatusChange(status) }
       },
       avPlayer.observe(\.timeControlStatus, options: [.new]) { [weak self] player, _ in
-        self?.onTimeControlStatusChange(player.timeControlStatus)
+        let status = player.timeControlStatus
+        Task { @MainActor in self?.onTimeControlStatusChange(status) }
       },
     ]
   }

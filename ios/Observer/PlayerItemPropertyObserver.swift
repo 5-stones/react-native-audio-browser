@@ -15,17 +15,17 @@ final class PlayerItemPropertyObserver: NSObject, @unchecked Sendable {
 
   private(set) weak var observingAVItem: AVPlayerItem?
 
-  private let onDurationUpdate: @Sendable (Double) -> Void
-  private let onPlaybackLikelyToKeepUpUpdate: @Sendable (Bool) -> Void
-  private let onStatusChange: @Sendable (AVPlayerItem.Status, Error?) -> Void
+  private let onDurationUpdate: @MainActor (Double) -> Void
+  private let onPlaybackLikelyToKeepUpUpdate: @MainActor (Bool) -> Void
+  private let onStatusChange: @MainActor (AVPlayerItem.Status, Error?) -> Void
   // Note: AVTimedMetadataGroup is not Sendable, but this callback is always invoked
   // on the main thread via AVPlayerItemMetadataOutputPushDelegate (queue: .main)
   private let onTimedMetadataReceived: @MainActor ([AVTimedMetadataGroup]) -> Void
 
   init(
-    onDurationUpdate: @escaping @Sendable (Double) -> Void,
-    onPlaybackLikelyToKeepUpUpdate: @escaping @Sendable (Bool) -> Void,
-    onStatusChange: @escaping @Sendable (AVPlayerItem.Status, Error?) -> Void,
+    onDurationUpdate: @escaping @MainActor (Double) -> Void,
+    onPlaybackLikelyToKeepUpUpdate: @escaping @MainActor (Bool) -> Void,
+    onStatusChange: @escaping @MainActor (AVPlayerItem.Status, Error?) -> Void,
     onTimedMetadataReceived: @escaping @MainActor ([AVTimedMetadataGroup]) -> Void,
   ) {
     self.onDurationUpdate = onDurationUpdate
@@ -50,18 +50,23 @@ final class PlayerItemPropertyObserver: NSObject, @unchecked Sendable {
 
     observations = [
       avItem.observe(\.duration, options: [.new]) { [weak self] item, _ in
-        self?.onDurationUpdate(item.duration.seconds)
+        let seconds = item.duration.seconds
+        Task { @MainActor in self?.onDurationUpdate(seconds) }
       },
       avItem.observe(\.loadedTimeRanges, options: [.new]) { [weak self] item, _ in
         if let duration = item.loadedTimeRanges.first?.timeRangeValue.duration {
-          self?.onDurationUpdate(duration.seconds)
+          let seconds = duration.seconds
+          Task { @MainActor in self?.onDurationUpdate(seconds) }
         }
       },
       avItem.observe(\.isPlaybackLikelyToKeepUp, options: [.new]) { [weak self] item, _ in
-        self?.onPlaybackLikelyToKeepUpUpdate(item.isPlaybackLikelyToKeepUp)
+        let isLikely = item.isPlaybackLikelyToKeepUp
+        Task { @MainActor in self?.onPlaybackLikelyToKeepUpUpdate(isLikely) }
       },
       avItem.observe(\.status, options: [.new]) { [weak self] item, _ in
-        self?.onStatusChange(item.status, item.error)
+        let status = item.status
+        let error = item.error
+        Task { @MainActor in self?.onStatusChange(status, error) }
       },
     ]
 
