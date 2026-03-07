@@ -7,31 +7,47 @@ extension Track {
   /// - Omitted argument → keep existing value
   /// - `.some(nil)` → set field to nil
   /// - `.some(value)` → set field to value
+  ///
+  /// `title` uses single-optional (`String?`) since it is non-optional on Track.
   func copying(
     url: String?? = nil,
+    src: String?? = nil,
+    artwork: String?? = nil,
     artworkSource: ImageSource?? = nil,
+    artworkCarPlayTinted: Bool?? = nil,
+    title: String? = nil,
+    subtitle: String?? = nil,
+    artist: String?? = nil,
+    album: String?? = nil,
+    description: String?? = nil,
+    genre: String?? = nil,
+    duration: Double?? = nil,
+    style: TrackStyle?? = nil,
+    childrenStyle: TrackStyle?? = nil,
     favorited: Bool?? = nil,
+    groupTitle: String?? = nil,
+    live: Bool?? = nil,
     imageRow: [ImageRowItem]?? = nil
   ) -> Track {
     Track(
-      url: if let url { url } else { self.url },
-      src: src,
-      artwork: artwork,
-      artworkSource: if let artworkSource { artworkSource } else { self.artworkSource },
-      artworkCarPlayTinted: artworkCarPlayTinted,
-      title: title,
-      subtitle: subtitle,
-      artist: artist,
-      album: album,
-      description: description,
-      genre: genre,
-      duration: duration,
-      style: style,
-      childrenStyle: childrenStyle,
-      favorited: if let favorited { favorited } else { self.favorited },
-      groupTitle: groupTitle,
-      live: live,
-      imageRow: if let imageRow { imageRow } else { self.imageRow }
+      url: url ?? self.url,
+      src: src ?? self.src,
+      artwork: artwork ?? self.artwork,
+      artworkSource: artworkSource ?? self.artworkSource,
+      artworkCarPlayTinted: artworkCarPlayTinted ?? self.artworkCarPlayTinted,
+      title: title ?? self.title,
+      subtitle: subtitle ?? self.subtitle,
+      artist: artist ?? self.artist,
+      album: album ?? self.album,
+      description: description ?? self.description,
+      genre: genre ?? self.genre,
+      duration: duration ?? self.duration,
+      style: style ?? self.style,
+      childrenStyle: childrenStyle ?? self.childrenStyle,
+      favorited: favorited ?? self.favorited,
+      groupTitle: groupTitle ?? self.groupTitle,
+      live: live ?? self.live,
+      imageRow: imageRow ?? self.imageRow
     )
   }
 }
