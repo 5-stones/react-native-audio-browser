@@ -15,16 +15,22 @@ subgraph Nitro["Nitro Hybrid Object"]
   HAB["HybridAudioBrowser<br/>Implements HybridAudioBrowserSpec<br/>~50 callback properties"]
 end
 
-TP["TrackPlayer<br/>Core AVPlayer Logic<br/>Queue Management<br/>LoadSeekCoordinator"]
+TP["TrackPlayer<br/>Core AVPlayer Logic<br/>State Machine (PlaybackEvent)<br/>LoadSeekCoordinator"]
+
+subgraph Queue["Queue Management"]
+  QM["QueueManager<br/>Queue State, Navigation<br/>Repeat Mode, Shuffle"]
+  SO["ShuffleOrder<br/>Fisher-Yates Shuffle"]
+end
 
 subgraph Browser["Browser System"]
   BM["BrowserManager<br/>@MainActor<br/>Navigation, Routing, Caching<br/>URL Resolution"]
   SR["SimpleRouter<br/>Route Pattern Matching<br/>Parameter Extraction"]
   BPH["BrowserPathHelper<br/>Contextual URLs<br/>Path Utilities"]
   BC["BrowserConfig<br/>Configuration Wrapper"]
-  HC["HttpClient<br/>URLSession Wrapper"]
   LRU["LRUCache<br/>Track and Content Cache<br/>Thread-safe"]
 end
+
+HC["HttpClient<br/>URLSession Wrapper"]
 
 subgraph Platform["Apple Platform APIs"]
   AVP["AVPlayer<br/>Apple AVFoundation"]
@@ -82,6 +88,7 @@ BM -->|"trackCache 3000, contentCache 20"| LRU
 BM --> SFR
 
 TP -->|Controls| AVP
+TP -->|Owns| QM
 TP -->|Owns| PSO
 TP -->|Owns| PTO
 TP -->|Owns| PINO
@@ -92,6 +99,8 @@ TP -->|Owns| STM
 TP -->|Owns| RM
 TP -->|Owns| RCC
 TP -->|Owns| NPIC
+
+QM --> SO
 
 PSO -->|KVO| AVP
 PTO -->|addPeriodicTimeObserver| AVP
@@ -122,10 +131,12 @@ classDef state fill:#e8f5e9,stroke:#333,stroke-width:2px
 classDef util fill:#fafafa,stroke:#333,stroke-width:2px
 classDef protocol fill:#fff8e1,stroke:#333,stroke-width:1px,stroke-dasharray:5 5
 classDef carplay fill:#e1f0ff,stroke:#333,stroke-width:2px
+classDef queue fill:#fce4ec,stroke:#333,stroke-width:2px
 
 class HAB nitro
 class TP core
-class BM,SR,BPH,BC,HC,LRU browser
+class BM,SR,BPH,BC,LRU browser
+class HC browser
 class PSO,PTO,PINO,PIPO observer
 class RCC,NPIC controller
 class AVP,MPRC,AS,MPNP,CPT,JS platform
@@ -133,6 +144,7 @@ class PSM,PPUM,STM,RM state
 class NM,EM,OV,SFR util
 class TPC protocol
 class CPC,MIH carplay
+class QM,SO queue
 ```
 
 ## Key Architecture Points
@@ -155,8 +167,10 @@ class CPC,MIH carplay
 1. **JS → Native**: Direct sync/async method calls via Nitro
 2. **Native → JS**: Callback properties invoked from native code
 3. **Browser → Player**: `navigateTrack()` can expand contextual URLs and load queue
-4. **Player → Controllers**: TrackPlayer owns RemoteCommandController and NowPlayingInfoController
-5. **Platform → Observers**: KVO and NotificationCenter feed back to TrackPlayer
+4. **Player → Queue**: TrackPlayer delegates queue operations to QueueManager (pure state, no AVPlayer knowledge)
+5. **Player → Controllers**: TrackPlayer owns RemoteCommandController and NowPlayingInfoController
+6. **Platform → Observers**: KVO and NotificationCenter feed back to TrackPlayer
+7. **State Machine**: PlaybackEvent triggers deterministic transitions in TrackPlayer via `transition(_ event)` with side effects
 
 ### Thread Safety
 
@@ -182,10 +196,12 @@ ios/
 ├── HybridAudioBrowser.swift          # Main Nitro entry point
 │                                     # Implements HybridAudioBrowserSpec & TrackPlayerCallbacks
 │                                     # ~50 callback properties (browser, player, remote)
-├── TrackPlayer.swift                 # Core AVPlayer logic
-│                                     # Queue management, media URL resolution
+├── TrackPlayer.swift                 # Core AVPlayer logic, media URL resolution
+│                                     # State machine (PlaybackEvent → PlaybackState)
 │                                     # Owns all observers, state managers, controllers
 │                                     # Nested LoadSeekCoordinator for deferred seeks
+├── PlaybackEvent.swift              # PlaybackEvent enum and PlaybackState
+│                                     # State machine transition function nextState(from:on:)
 ├── TrackPlayerCallbacks.swift        # @MainActor callback protocol (~30 methods)
 │                                     # Bridge between TrackPlayer events and HybridAudioBrowser
 ├── Browser/
@@ -205,6 +221,10 @@ ios/
 │   ├── PlayerItemNotificationObserver.swift  # Track end/fail notifications
 │   └── PlayerItemPropertyObserver.swift      # Duration, metadata, buffering
 ├── Player/
+│   ├── QueueManager.swift            # Queue state, navigation, repeat, shuffle
+│   │                                 # Delegate: QueueManagerDelegate
+│   │                                 # Returns QueueNavigationResult (.trackChanged, .sameTrackReplay, .noChange)
+│   ├── ShuffleOrder.swift            # Fisher-Yates shuffle ordering
 │   ├── PlayingStateManager.swift     # Computes playing/buffering state
 │   ├── SleepTimerManager.swift       # @MainActor sleep timer (time & end-of-track)
 │   ├── PlaybackProgressUpdateManager.swift   # Timer-based periodic progress
@@ -234,7 +254,8 @@ ios/
 │   ├── MediaURL.swift                # URL parsing utilities
 │   ├── RemoteCommand.swift           # Remote command enum with config
 │   ├── SourceType.swift              # file vs stream detection
-│   └── PlayerUpdateOptions.swift     # Update options struct
+│   ├── PlayerUpdateOptions.swift     # Update options struct
+│   └── NitroTypeStubs.swift          # Nitro type stubs
 ├── Extension/
 │   ├── Track+AVPlayer.swift          # Track artwork loading
 │   ├── Track+Copying.swift           # Track.copying() for selective field updates
@@ -257,7 +278,10 @@ ios/
 │   ├── SFSymbolRenderer.swift        # SF Symbol → file:// image rendering
 │   └── SVGProcessor.swift            # SVG processing
 ├── Tests/
-│   └── SimpleRouterTests.swift       # Unit tests for route matching
+│   ├── SimpleRouterTests.swift       # Unit tests for route matching
+│   ├── QueueManagerTests.swift       # Unit tests for queue management
+│   └── Support/
+│       └── TestTypes.swift           # Test support types
 └── Support/
     └── Bridge.h                       # Objective-C bridge header
 ```
