@@ -1,5 +1,8 @@
 import AVFoundation
+
+#if canImport(NitroModules)
 import NitroModules
+#endif
 
 extension TrackMetadata {
   /// Creates TrackMetadata from AVMetadataItem array using common identifiers.

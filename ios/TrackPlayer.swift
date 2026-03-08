@@ -6,16 +6,22 @@ import os.log
 
 @MainActor
 class TrackPlayer {
-  private let logger = Logger(subsystem: "com.audiobrowser", category: "TrackPlayer")
+  // MARK: - Internal (extension access)
+  // These members are internal (not private) because extension files
+  // (TrackPlayer+ObserverCallbacks, TrackPlayer+TrackManagement) need access.
+
+  let logger = Logger(subsystem: "com.audiobrowser", category: "TrackPlayer")
+  let errorHandler: PlaybackErrorHandler
+  weak var callbacks: TrackPlayerCallbacks?
+  var lastIndex: Int = -1
+  var lastTrack: Track?
+
+  // MARK: - Dependencies
 
   let nowPlayingInfoController: NowPlayingInfoController
   let remoteCommandController: RemoteCommandController
   let sleepTimerManager = SleepTimerManager()
   private let retryManager = RetryManager()
-  private var pendingRetryTask: Task<Void, Never>?
-  private weak var callbacks: TrackPlayerCallbacks?
-  private var lastIndex: Int = -1
-  private var lastTrack: Track?
 
   /// Retry configuration for load errors (network failures, timeouts, etc.)
   var retryConfig: Variant_Bool_RetryConfig? {
@@ -51,7 +57,7 @@ class TrackPlayer {
   var queueSourcePath: String? { queue.queueSourcePath }
   var nextTracks: [Track] { queue.nextTracks }
   var previousTracks: [Track] { queue.previousTracks }
-  private var isLastInPlaybackOrder: Bool { queue.isLastInPlaybackOrder }
+  var isLastInPlaybackOrder: Bool { queue.isLastInPlaybackOrder }
 
   /// The repeat mode for the queue player.
   var repeatMode: RepeatMode {
@@ -78,9 +84,10 @@ class TrackPlayer {
     }
   }
 
-  // MARK: - AVPlayer Properties (from AVPlayerWrapper)
+  // MARK: - AVPlayer Properties
+  // avPlayer and loadSeekCoordinator are internal for extension file access.
 
-  private var avPlayer = AVPlayer()
+  var avPlayer = AVPlayer()
 
   private lazy var playerObserver: PlayerStateObserver = .init(
     onStatusChange: { [weak self] status in
@@ -106,7 +113,8 @@ class TrackPlayer {
       self?.handleTrackDidPlayToEndTime()
     },
     onFailedToPlayToEndTime: { [weak self] error in
-      self?.handleItemFailedToPlayToEndTime(error: error)
+      let effectiveError = error ?? self?.avPlayer.currentItem?.error
+      self?.errorHandler.handleError(effectiveError, context: .playback)
     },
   )
 
@@ -141,7 +149,7 @@ class TrackPlayer {
     self?.callbacks?.playerDidChangePlayingState(state)
   }
 
-  private let loadSeekCoordinator = LoadSeekCoordinator()
+  let loadSeekCoordinator = LoadSeekCoordinator()
   private(set) var playbackError: TrackPlayerError.PlaybackError?
 
   private(set) var lastPlayerTimeControlStatus: AVPlayer.TimeControlStatus = .paused
@@ -207,8 +215,8 @@ class TrackPlayer {
 
   // MARK: - Playback State Machine
 
-  private func transition(_ event: PlaybackEvent) {
-    guard let newState = nextState(from: state, on: event) else { return }
+  func transition(_ event: PlaybackEvent) {
+    guard let newState = nextPlaybackState(from: state, on: event) else { return }
 
     // Allow error-to-error transitions to update the error and emit callbacks,
     // even though the state enum value doesn't change.
@@ -228,38 +236,6 @@ class TrackPlayer {
     state = newState
     applySideEffects(old: oldState, new: newState, event: event)
     emitStateChange(old: oldState, new: newState)
-  }
-
-  /// Determines the next state for a given event, or `nil` to suppress the transition.
-  ///
-  /// Guards here are **state-related** (e.g., "only from .loading"). Context-related
-  /// guards (e.g., `asset != nil`, `nearTrackEnd`, `!playWhenReady`) live at the call
-  /// site and decide whether to fire the event at all.
-  private func nextState(from current: PlaybackState, on event: PlaybackEvent) -> PlaybackState? {
-    switch event {
-    case .stopped:             return .stopped
-    case .trackLoading:        return .loading
-    case .trackUnloaded:       return .none
-    case .trackEndedNaturally: return .ended
-    case .avPlayerWaiting:     return .buffering
-    case .avPlayerPlaying:     return .playing
-    case .audioFrameDecoded:   return .playing
-    case .errorOccurred:       return .error
-
-    case .loadSeekCompleted:
-      guard current == .loading else { return nil }
-      return .ready
-
-    case .avPlayerPaused(let hasAsset):
-      guard current != .stopped else { return nil }
-      if !hasAsset { return .none }
-      guard current != .error else { return nil }
-      return .paused
-
-    case .bufferingSufficient:
-      guard current != .playing else { return nil }
-      return .ready
-    }
   }
 
   private func applySideEffects(old: PlaybackState, new: PlaybackState, event: PlaybackEvent) {
@@ -450,6 +426,7 @@ class TrackPlayer {
     nowPlayingUpdater = NowPlayingUpdater(nowPlayingInfoController: nowPlayingInfoController)
     remoteCommandController = RemoteCommandController(callbacks: callbacks)
     self.callbacks = callbacks
+    errorHandler = PlaybackErrorHandler(retryHandler: retryManager)
     queue.delegate = self
     mediaLoader.delegate = self
 
@@ -464,6 +441,11 @@ class TrackPlayer {
     }
     retryManager.onRetry = { [weak self] startFromCurrentTime in
       self?.reload(startFromCurrentTime: startFromCurrentTime)
+    }
+
+    // Wire error handler to state machine
+    errorHandler.onError = { [weak self] error in
+      self?.transition(.errorOccurred(error))
     }
 
     // Handle command center changes when MPNowPlayingSession is created/destroyed (iOS 16+)
@@ -646,10 +628,12 @@ class TrackPlayer {
     avPlayer.currentItem?.audioTimePitchAlgorithm = audioTimePitchAlgorithm
   }
 
-  // MARK: - AVPlayer Management Methods (from AVPlayerWrapper)
+  // MARK: - AVPlayer Management (extension access)
+  // startPlayback, pausePlayback, clearCurrentAVItem, startObservingAVPlayerItem,
+  // stopObservingAVPlayerItem, and transition are internal for extension file access.
 
   /// Starts playback at the configured rate
-  private func startPlayback() {
+  func startPlayback() {
     avPlayer.play()
     if rate != 1.0 {
       avPlayer.rate = rate
@@ -657,23 +641,23 @@ class TrackPlayer {
   }
 
   /// Pauses playback
-  private func pausePlayback() {
+  func pausePlayback() {
     avPlayer.pause()
   }
 
-  private func clearCurrentAVItem() {
+  func clearCurrentAVItem() {
     stopObservingAVPlayerItem()
     mediaLoader.clearAsset()
     loadSeekCoordinator.reset()
     avPlayer.replaceCurrentItem(with: nil)
   }
 
-  private func startObservingAVPlayerItem(_ avItem: AVPlayerItem) {
+  func startObservingAVPlayerItem(_ avItem: AVPlayerItem) {
     playerItemObserver.startObserving(item: avItem)
     playerItemNotificationObserver.startObserving(item: avItem)
   }
 
-  private func stopObservingAVPlayerItem() {
+  func stopObservingAVPlayerItem() {
     playerItemObserver.stopObservingCurrentItem()
     playerItemNotificationObserver.stopObservingCurrentItem()
   }
@@ -758,371 +742,5 @@ class TrackPlayer {
     }
     nowPlayingUpdater.setCurrentTime(seconds: seconds)
     callbacks?.playerDidCompleteSeek(position: seconds, didFinish: didFinish)
-  }
-
-  func handleTrackDidPlayToEndTime() {
-    // Check if sleep timer should trigger on track end
-    sleepTimerManager.onTrackPlayedToEnd()
-
-    if repeatMode == .track {
-      replay()
-    } else if repeatMode == .queue || !isLastInPlaybackOrder {
-      next()
-    } else {
-      transition(.trackEndedNaturally)
-    }
-  }
-
-  // MARK: - Observer Callbacks
-
-  func avPlayerDidChangeTimeControlStatus(_ status: AVPlayer.TimeControlStatus) {
-    // During loading, ignore stale timeControlStatus changes from old items.
-    // State transitions during loading are managed by MediaLoader
-    // and avItemDidUpdatePlaybackLikelyToKeepUp.
-    if state == .loading { return }
-
-    switch status {
-    case .paused:
-      let currentState = state
-      let currentTime = currentTime
-      let duration = duration
-      // Ignore pauses when near track end - let handleTrackDidPlayToEndTime handle track
-      // completion
-      let nearTrackEnd = currentTime >= duration - 0.5 && duration > 0
-
-      // Completely ignore pause events when near track end to avoid race with
-      // handleTrackDidPlayToEndTime
-      if nearTrackEnd {
-        // Ignore - track completion will be handled by handleTrackDidPlayToEndTime
-      } else if mediaLoader.asset == nil, currentState != .stopped {
-        transition(.avPlayerPaused(hasAsset: false))
-      } else if currentState != .error, currentState != .stopped {
-        // Only update state, never modify playWhenReady
-        // playWhenReady represents user intent and should only change via explicit user actions
-        if !playWhenReady {
-          transition(.avPlayerPaused(hasAsset: true))
-        }
-        // If playWhenReady is true, this is likely buffering/seeking - don't change state
-      }
-    case .waitingToPlayAtSpecifiedRate:
-      if mediaLoader.asset != nil {
-        transition(.avPlayerWaiting)
-      }
-    case .playing:
-      transition(.avPlayerPlaying)
-    @unknown default:
-      break
-    }
-  }
-
-  func avPlayerStatusDidChange(_ status: AVPlayer.Status) {
-    if status == .failed {
-      handlePlaybackFailure(error: avPlayer.currentItem?.error)
-    }
-  }
-
-  /// Handles AVPlayerItem status changes - this catches errors that don't show up in AVPlayer.status
-  func avItemStatusDidChange(_ status: AVPlayerItem.Status, error: Error?) {
-    if status == .failed {
-      let effectiveError = error ?? avPlayer.currentItem?.error
-      handlePlaybackFailure(error: effectiveError)
-    }
-  }
-
-  /// Common handler for playback failures from either AVPlayer or AVPlayerItem
-  private func handlePlaybackFailure(error: Error?) {
-    if let error {
-      let nsError = error as NSError
-      logger.error("Playback failure: domain=\(nsError.domain), code=\(nsError.code), localizedDescription=\(error.localizedDescription)")
-    } else {
-      logger.error("Playback failure with nil error")
-    }
-
-    // Try retry before setting error state
-    if retryManager.isRetryable(error) {
-      pendingRetryTask?.cancel()
-      pendingRetryTask = Task {
-        let retried = await retryManager.attemptRetry(startFromCurrentTime: true)
-        if !retried {
-          // Max retries exceeded or retry cancelled, surface error
-          self.setPlaybackError(from: error)
-        }
-      }
-      return
-    }
-
-    logger.warning("Error not retryable, surfacing playback_failed")
-    setPlaybackError(from: error)
-  }
-
-  /// Sets the playback error from an Error, with appropriate classification
-  private func setPlaybackError(from error: Error?) {
-    let nsError = error as NSError?
-    let playbackError: TrackPlayerError.PlaybackError =
-      nsError?.code == URLError.notConnectedToInternet.rawValue
-        ? .notConnectedToInternet
-        : .playbackFailed
-    transition(.errorOccurred(playbackError))
-  }
-
-  /// Handles AVPlayerItemFailedToPlayToEndTime notification with retry logic
-  private func handleItemFailedToPlayToEndTime(error: Error?) {
-    let effectiveError = error ?? avPlayer.currentItem?.error
-    handlePlaybackFailure(error: effectiveError)
-  }
-
-  func audioDidStart() {
-    // Don't override loading state - MediaLoader manages that transition
-    if state == .loading { return }
-    transition(.audioFrameDecoded)
-  }
-
-  func avItemDidUpdatePlaybackLikelyToKeepUp(_ playbackLikelyToKeepUp: Bool) {
-    guard playbackLikelyToKeepUp else { return }
-
-    // KVO callbacks are dispatched to MainActor asynchronously, so a stale callback
-    // from a previous AVPlayerItem can arrive after the item was replaced/cleared.
-    // Ignore these — there's nothing meaningful to do without a loaded item.
-    guard avPlayer.currentItem != nil else { return }
-
-    // Execute any pending seek that arrived after MediaLoader completed
-    if loadSeekCoordinator.executeIfPending(on: avPlayer, delegate: self) {
-      return
-    }
-
-    // Only transition to .ready if no seek is in-flight — otherwise
-    // handleSeekCompleted will handle the transition once the seek lands.
-    if !loadSeekCoordinator.shouldDeferReadyTransition, state != .playing {
-      logger.debug("avItemDidUpdatePlaybackLikelyToKeepUp → .ready")
-      transition(.bufferingSufficient)
-    }
-  }
-
-  // MARK: - Queue Methods
-
-  func replace(_ index: Int, _ track: Track) {
-    queue.replace(index, track)
-  }
-
-  func setQueue(_ newTracks: [Track], initialIndex: Int = 0, playWhenReady: Bool? = nil, sourcePath: String? = nil) {
-    guard !newTracks.isEmpty else {
-      clear()
-      return
-    }
-    handlePlayWhenReady(playWhenReady) {
-      // setQueue always returns true (current track always changes)
-      queue.setQueue(newTracks, initialIndex: initialIndex, sourcePath: sourcePath)
-      handleCurrentTrackChanged()
-    }
-  }
-
-  func add(_ tracks: [Track], initialIndex: Int? = nil, playWhenReady: Bool? = nil) {
-    handlePlayWhenReady(playWhenReady) {
-      let changed = queue.add(tracks, initialIndex: initialIndex ?? 0)
-      if changed { handleCurrentTrackChanged() }
-    }
-  }
-
-  func add(_ tracks: [Track], at index: Int) throws {
-    let changed = try queue.addAt(tracks, at: index)
-    if changed { handleCurrentTrackChanged() }
-  }
-
-  func next() {
-    let result = queue.next()
-    switch result {
-    case .trackChanged:    handleCurrentTrackChanged()
-    case .sameTrackReplay: if playWhenReady { replay() }
-    case .noChange:        break
-    }
-  }
-
-  func previous() {
-    let result = queue.previous()
-    switch result {
-    case .trackChanged:    handleCurrentTrackChanged()
-    case .sameTrackReplay: if playWhenReady { replay() }
-    case .noChange:        break
-    }
-  }
-
-  func remove(_ index: Int) throws {
-    let changed = try queue.remove(index)
-    if changed { handleCurrentTrackChanged() }
-  }
-
-  func skipTo(_ index: Int, playWhenReady: Bool? = nil) throws {
-    try handlePlayWhenReady(playWhenReady) {
-      if index == queue.currentIndex {
-        seekTo(0)
-      } else {
-        // skipTo always returns .trackChanged (same-index is handled above)
-        try queue.skipTo(index)
-        handleCurrentTrackChanged()
-      }
-    }
-  }
-
-  func move(fromIndex: Int, toIndex: Int) throws {
-    let changed = try queue.move(fromIndex: fromIndex, toIndex: toIndex)
-    if changed { handleCurrentTrackChanged() }
-  }
-
-  func removeUpcomingTracks() {
-    queue.removeUpcomingTracks()
-  }
-
-  func replay() {
-    seekTo(0) { [weak self] succeeded in
-      if succeeded { self?.play() }
-    }
-  }
-
-  func handleCurrentTrackChanged() {
-    // Reset end-of-track sleep timer when track changes
-    sleepTimerManager.onTrackChanged()
-
-    mediaLoader.cancelAll()
-    loadSeekCoordinator.reset()
-
-    // Cancel any pending retry and reset count when track changes
-    pendingRetryTask?.cancel()
-    pendingRetryTask = nil
-    retryManager.reset()
-
-    // Clear directly rather than via transition() — the code below immediately
-    // follows with transition(.trackLoading) which handles the .error → .loading
-    // transition and its side effects.
-    if playbackError != nil {
-      playbackError = nil
-    }
-
-    let lastPosition = currentTime
-    let shouldContinuePlayback = playWhenReady
-    if let currentTrack {
-      // Cancel in-flight loading from previous track and clear old item
-      // to prevent stale audio during async URL resolution.
-      stopObservingAVPlayerItem()
-      pausePlayback()
-      avPlayer.replaceCurrentItem(with: nil)
-
-      // Set loading state before playWhenReady so the setter's guard
-      // prevents a no-op startPlayback() on the now-nil item.
-      transition(.trackLoading)
-
-      // Ensure playWhenReady is set before loading to preserve playback state
-      playWhenReady = shouldContinuePlayback
-
-      // Reset playback values without updating, because that will happen in
-      // the nowPlayingUpdater.loadMetaValues call straight after:
-      nowPlayingInfoController.setWithoutUpdate(keyValues: [
-        MediaItemProperty.duration(nil),
-        NowPlayingInfoProperty.playbackRate(nil),
-        NowPlayingInfoProperty.elapsedPlaybackTime(nil),
-      ])
-      nowPlayingUpdater.loadMetaValues(for: currentTrack, rate: rate)
-
-      // Validate source URL before handing off to MediaLoader
-      guard let src = currentTrack.src else {
-        logger.error("Failed to load track - no src")
-        logger.error("  track.title: \(currentTrack.title)")
-        logger.error("  track.url: \(currentTrack.url ?? "nil")")
-        clearCurrentAVItem()
-        transition(.errorOccurred(.invalidSourceUrl("nil")))
-        return
-      }
-
-      logger.debug("Loading track: \(currentTrack.title)")
-      logger.debug("  track.url: \(currentTrack.url ?? "nil")")
-      logger.debug("  track.src: \(src)")
-
-      mediaLoader.resolveAndLoad(src: src)
-    } else {
-      unloadAVPlayer()
-      nowPlayingInfoController.clear()
-    }
-
-    let eventData = PlaybackActiveTrackChangedEvent(
-      lastIndex: lastIndex == -1 ? nil : Double(lastIndex),
-      lastTrack: lastTrack,
-      lastPosition: lastPosition,
-      index: currentIndex == -1 ? nil : Double(currentIndex),
-      track: currentTrack,
-    )
-    callbacks?.playerDidChangeActiveTrack(eventData)
-    lastTrack = currentTrack
-    lastIndex = currentIndex
-  }
-
-}
-
-// MARK: - QueueManagerDelegate
-
-extension TrackPlayer: QueueManagerDelegate {
-  func queueDidChangeTracks(_ tracks: [Track]) {
-    callbacks?.playerDidChangeQueue(tracks)
-  }
-}
-
-// MARK: - SeekCompletionHandler
-
-extension TrackPlayer: SeekCompletionHandler {}
-
-// MARK: - TrackSelectionPlayer
-
-extension TrackPlayer: TrackSelectionPlayer {}
-
-// MARK: - MediaLoaderDelegate
-
-extension TrackPlayer: MediaLoaderDelegate {
-  func mediaLoaderDidPrepareItem(_ item: AVPlayerItem) {
-    nowPlayingInfoController.prepareItem(item)
-    avPlayer.replaceCurrentItem(with: item)
-    startObservingAVPlayerItem(item)
-    if playWhenReady { startPlayback() }
-
-    if !loadSeekCoordinator.executeIfPending(on: avPlayer, delegate: self) {
-      if item.isPlaybackLikelyToKeepUp {
-        avItemDidUpdatePlaybackLikelyToKeepUp(true)
-      }
-    }
-  }
-
-  func mediaLoaderDidFailWithRetryableError(_ error: Error) {
-    if retryManager.isRetryable(error) {
-      pendingRetryTask?.cancel()
-      pendingRetryTask = Task {
-        let retried = await retryManager.attemptRetry(startFromCurrentTime: false)
-        if !retried {
-          let nsError = error as NSError?
-          let playbackError: TrackPlayerError.PlaybackError =
-            nsError?.code == URLError.notConnectedToInternet.rawValue
-              ? .notConnectedToInternet : .failedToLoadKeyValue
-          self.transition(.errorOccurred(playbackError))
-        }
-      }
-      return
-    }
-    transition(.errorOccurred(.failedToLoadKeyValue))
-  }
-
-  func mediaLoaderDidFailWithUnplayableTrack() {
-    transition(.errorOccurred(.trackWasUnplayable))
-  }
-
-  func mediaLoaderDidFailWithError(_ error: TrackPlayerError.PlaybackError) {
-    transition(.errorOccurred(error))
-  }
-
-  func mediaLoaderDidReceiveCommonMetadata(_ items: [AVMetadataItem]) {
-    callbacks?.playerDidReceiveCommonMetadata(items)
-  }
-
-  func mediaLoaderDidReceiveChapterMetadata(_ groups: [AVTimedMetadataGroup]) {
-    callbacks?.playerDidReceiveChapterMetadata(groups)
-  }
-
-  func mediaLoaderDidReceiveTimedMetadata(_ groups: [AVTimedMetadataGroup]) {
-    callbacks?.playerDidReceiveTimedMetadata(groups)
   }
 }

@@ -1,5 +1,8 @@
 import AVFoundation
+
+#if canImport(NitroModules)
 import NitroModules
+#endif
 
 extension ChapterMetadata {
   /// Creates an array of ChapterMetadata from AVTimedMetadataGroup array.

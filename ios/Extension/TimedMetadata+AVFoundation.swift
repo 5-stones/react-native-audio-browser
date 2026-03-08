@@ -1,5 +1,8 @@
 import AVFoundation
+
+#if canImport(NitroModules)
 import NitroModules
+#endif
 
 extension TimedMetadata {
   /// Creates TimedMetadata from AVMetadataItem array, detecting the metadata format.

@@ -240,3 +240,7 @@ class RetryManager {
     return false
   }
 }
+
+// MARK: - RetryHandling
+
+extension RetryManager: RetryHandling {}
