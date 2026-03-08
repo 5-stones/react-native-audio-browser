@@ -150,7 +150,7 @@ class TrackPlayer {
   }
 
   let loadSeekCoordinator = LoadSeekCoordinator()
-  private(set) var playbackError: TrackPlayerError.PlaybackError?
+  var playbackError: TrackPlayerError.PlaybackError?
 
   private(set) var lastPlayerTimeControlStatus: AVPlayer.TimeControlStatus = .paused
 
