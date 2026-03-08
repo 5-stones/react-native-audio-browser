@@ -28,6 +28,7 @@ let package = Package(
         "Extension/TrackMetadata+AVFoundation.swift",
         "Extension/TimedMetadata+AVFoundation.swift",
         "Extension/ChapterMetadata+AVFoundation.swift",
+        "Util/Emitter.swift",
       ]
     ),
     .testTarget(
