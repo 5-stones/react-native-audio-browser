@@ -25,7 +25,7 @@ bun add react-native-audio-browser react-native-nitro-modules
 ## Basic Setup
 
 ```typescript
-import { AudioBrowser } from 'react-native-audio-browser'
+import { AudioBrowser } from '@5stones/react-native-audio-browser'
 
 // Initialize the audio browser
 AudioBrowser.setup({

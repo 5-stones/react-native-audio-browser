@@ -112,7 +112,8 @@ public class HybridAudioBrowser: HybridAudioBrowserSpec, @unchecked Sendable {
     carPlayUpNextButton: nil, carPlayNowPlayingButtons: nil, formatNavigationError: nil,
   ) {
     didSet {
-      browserManager.config = BrowserConfig(from: configuration)
+      var config = BrowserConfig(from: configuration)
+      browserManager.config = config
 
       // Query tabs and navigate to initial path after config is set (matches Kotlin behavior)
       Task { @MainActor in
@@ -226,6 +227,7 @@ public class HybridAudioBrowser: HybridAudioBrowserSpec, @unchecked Sendable {
       setupRouteChangeObserver()
     }
   }
+
 
   // MARK: - Initialization
 

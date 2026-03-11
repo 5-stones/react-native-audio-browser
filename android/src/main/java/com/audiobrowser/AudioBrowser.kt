@@ -202,6 +202,7 @@ class AudioBrowser : HybridAudioBrowserSpec(), ServiceConnection {
   override var handleRemoteSkip: (() -> Unit)? = null
   override var handleRemoteStop: (() -> Unit)? = null
 
+
   /** Lifecycle observer to check battery status when app comes to foreground */
   private val lifecycleObserver =
     object : DefaultLifecycleObserver {

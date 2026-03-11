@@ -3,6 +3,7 @@ import { Platform, StyleSheet } from 'react-native'
 import AudioBrowser, {
   BrowserConfiguration,
   getActiveTrack,
+  load,
   onTimedMetadata,
   setPlayWhenReady,
   updateNowPlaying
@@ -62,6 +63,9 @@ void AudioBrowser.setupPlayer().then(() => {
 })
 
 const configuration: BrowserConfiguration = {
+  async handleTrackLoad({ track }) {
+    load(track)
+  },
   tabs: [
     {
       title: 'Library',
