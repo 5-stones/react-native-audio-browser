@@ -32,6 +32,14 @@ public final class RNABCarPlayController: NSObject {
   /// Current navigation stack paths (for back navigation context)
   private var navigationStack: [String] = []
 
+  /// Key (src ?? url) of the item currently being selected.
+  /// Prevents duplicate taps from triggering parallel async operations.
+  private var pendingSelectionKey: String?
+
+  /// URLs currently being resolved for navigation.
+  /// Prevents duplicate taps from pushing the same template twice.
+  private var pendingNavigationUrls: Set<String> = []
+
   /// Helper object for CPInterfaceControllerDelegate conformance
   private var interfaceDelegate: InterfaceControllerDelegate?
 
@@ -136,6 +144,8 @@ public final class RNABCarPlayController: NSObject {
     listItemFactory = nil
 
     navigationStack.removeAll()
+    pendingSelectionKey = nil
+    pendingNavigationUrls.removeAll()
   }
 
   // MARK: - Content Subscriptions
@@ -406,8 +416,17 @@ public final class RNABCarPlayController: NSObject {
       return
     }
 
+    // Deduplicate: ignore if the same item is already being loaded
+    let key = track.src ?? track.url
+    if let key, key == pendingSelectionKey {
+      completion()
+      return
+    }
+    pendingSelectionKey = key
+
     // If this track is already loaded, resume playback and show Now Playing
     if let src = track.src, isActiveTrack(src: src) {
+      pendingSelectionKey = nil
       try? audioBrowser.play()
       nowPlayingManager.showNowPlaying()
       completion()
@@ -415,27 +434,27 @@ public final class RNABCarPlayController: NSObject {
     }
 
     guard let player = audioBrowser.getPlayer(), let trackSelector else {
+      pendingSelectionKey = nil
       completion()
       return
     }
 
     Task {
+      defer { self.pendingSelectionKey = nil }
       let result = await trackSelector.select(track: track, player: player)
-      await MainActor.run {
-        switch result {
-        case .play(let intent):
-          self.executePlayback(intent, player: player)
-          self.nowPlayingManager.showNowPlaying()
-        case .intercepted:
-          self.nowPlayingManager.showNowPlaying()
-        case .browse(let url):
-          self.navigateToUrl(url, completion: completion)
-          return // navigateToUrl handles its own completion
-        case .none:
-          break
-        }
-        completion()
+      switch result {
+      case .play(let intent):
+        self.executePlayback(intent, player: player)
+        self.nowPlayingManager.showNowPlaying()
+      case .intercepted:
+        self.nowPlayingManager.showNowPlaying()
+      case .browse(let url):
+        self.navigateToUrl(url, completion: completion)
+        return // navigateToUrl handles its own completion
+      case .none:
+        break
       }
+      completion()
     }
   }
 
@@ -457,23 +476,35 @@ public final class RNABCarPlayController: NSObject {
       return
     }
 
+    // Deduplicate: ignore if already navigating to this URL
+    guard !pendingNavigationUrls.contains(url) else {
+      completion()
+      return
+    }
+    pendingNavigationUrls.insert(url)
+
     Task {
+      defer { self.pendingNavigationUrls.remove(url) }
       do {
         let resolved = try await audioBrowser.browserManager.resolve(url, useCache: true)
 
-        await MainActor.run {
-          let listTemplate = self.createListTemplate(for: resolved, path: url)
-          self.navigationStack.append(url)
-          self.interfaceController.pushTemplate(listTemplate, animated: true, completion: nil)
+        // Guard against duplicate push if top template already shows this path
+        if let top = self.interfaceController.topTemplate,
+           self.getPath(from: top) == url
+        {
           completion()
+          return
         }
+
+        let listTemplate = self.createListTemplate(for: resolved, path: url)
+        self.navigationStack.append(url)
+        self.interfaceController.pushTemplate(listTemplate, animated: true, completion: nil)
+        completion()
       } catch {
         logger.error("Failed to navigate to \(url): \(error.localizedDescription)")
-        await MainActor.run {
-          let navError = NavigationError.from(error)
-          self.showNavigationError(navError, path: url)
-          completion()
-        }
+        let navError = NavigationError.from(error)
+        self.showNavigationError(navError, path: url)
+        completion()
       }
     }
   }

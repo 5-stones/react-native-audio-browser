@@ -115,6 +115,10 @@ final class CarPlayNowPlayingManager {
   func showNowPlaying() {
     updateNowPlayingButtonStates()
     let nowPlayingTemplate = CPNowPlayingTemplate.shared
+    // Don't push if already on the template stack
+    guard !interfaceController.templates.contains(where: { $0 === nowPlayingTemplate }) else {
+      return
+    }
     interfaceController.pushTemplate(nowPlayingTemplate, animated: true, completion: nil)
   }
 
