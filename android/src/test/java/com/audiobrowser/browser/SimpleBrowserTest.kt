@@ -3,7 +3,10 @@ package com.audiobrowser.browser
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class SimpleBrowserTest {
 
   @Test
@@ -22,12 +25,14 @@ class SimpleBrowserTest {
   }
 
   @Test
-  fun `navigate with empty config returns empty list`() = runBlocking {
-    val browserManager = BrowserManager()
-    browserManager.config = BrowserConfig()
-    val result = browserManager.navigate("/test")
-
-    assertEquals("No content configured for this path", result.title)
-    assertEquals("/test", result.url)
+  fun `navigate with empty config throws ContentNotFoundException`() {
+    runBlocking {
+      val browserManager = BrowserManager()
+      browserManager.config = BrowserConfig()
+      try {
+        browserManager.navigate("/test")
+        fail("Expected ContentNotFoundException")
+      } catch (_: ContentNotFoundException) {}
+    }
   }
 }
