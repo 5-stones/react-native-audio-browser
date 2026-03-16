@@ -6,6 +6,10 @@ struct Track: Equatable {
   var id: String
   var url: String? = nil
   var src: String? = nil
+  var title: String = ""
+  var artist: String? = nil
+  var album: String? = nil
+  var live: Bool? = nil
 }
 
 struct TrackLoadEvent {
@@ -154,6 +158,71 @@ struct ChapterMetadata: Equatable {
     self.endTime = endTime
     self.title = title
     self.url = url
+  }
+}
+
+// MARK: - Playback Event Types (used by PlaybackCoordinator)
+
+struct PlaybackError: Equatable {
+  var code: String
+  var message: String
+}
+
+struct Playback: Equatable {
+  var state: PlaybackState
+  var error: PlaybackError?
+}
+
+struct PlaybackErrorEvent {
+  var error: PlaybackError?
+}
+
+struct PlaybackActiveTrackChangedEvent {
+  var lastIndex: Double?
+  var lastTrack: Track?
+  var lastPosition: Double
+  var index: Double?
+  var track: Track?
+}
+
+struct PlaybackProgressUpdatedEvent {
+  var track: Double
+  var position: Double
+  var duration: Double
+  var buffered: Double
+}
+
+struct PlayingState: Equatable {
+  var playing: Bool
+  var buffering: Bool
+}
+
+struct PlaybackQueueEndedEvent {
+  var track: Double
+  var position: Double
+}
+
+struct RepeatModeChangedEvent {
+  var repeatMode: RepeatMode
+}
+
+// MARK: - TrackPlayerError.PlaybackError Nitro Conversion Stub
+
+extension TrackPlayerError.PlaybackError {
+  func toNitroError() -> PlaybackError {
+    let code = switch self {
+    case .failedToLoadKeyValue:
+      "failed_to_load"
+    case .invalidSourceUrl:
+      "invalid_source_url"
+    case .notConnectedToInternet:
+      "not_connected_to_internet"
+    case .playbackFailed:
+      "playback_failed"
+    case .trackWasUnplayable:
+      "track_unplayable"
+    }
+    return PlaybackError(code: code, message: errorDescription ?? "Unknown error")
   }
 }
 #endif

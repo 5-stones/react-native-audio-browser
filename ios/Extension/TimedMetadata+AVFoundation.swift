@@ -86,7 +86,7 @@ extension TimedMetadata {
     var artist: String?
     var album: String?
     var date: String?
-    var genre: String?
+    let genre: String? = nil
 
     for item in items {
       switch item.identifier {

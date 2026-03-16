@@ -8,40 +8,11 @@ import NitroModules
 /// HybridAudioBrowser implements this protocol to bridge events to JavaScript.
 /// Note: Method names are prefixed to avoid conflicts with JS callback property names.
 /// All callbacks are called from the main actor since TrackPlayer is @MainActor.
+///
+/// Extends PlaybackCoordinatorCallbacks for the state machine / coordinator callbacks,
+/// then adds metadata, seek, remote, and configuration callbacks that are TrackPlayer-specific.
 @MainActor
-protocol TrackPlayerCallbacks: AnyObject {
-  // MARK: - Playback State Events
-
-  /// Called when the playback state changes (state + error).
-  func playerDidChangePlayback(_ playback: Playback)
-
-  /// Called when the active track changes.
-  func playerDidChangeActiveTrack(_ event: PlaybackActiveTrackChangedEvent)
-
-  /// Called periodically with playback progress updates.
-  func playerDidUpdateProgress(_ event: PlaybackProgressUpdatedEvent)
-
-  /// Called when playWhenReady changes.
-  func playerDidChangePlayWhenReady(_ playWhenReady: Bool)
-
-  /// Called when the playing state changes (playing or buffering flags).
-  func playerDidChangePlayingState(_ state: PlayingState)
-
-  /// Called when the playback queue ends (player reaches the end of the last track).
-  func playerDidEndQueue(_ event: PlaybackQueueEndedEvent)
-
-  /// Called when the queue changes (tracks added, removed, or replaced).
-  func playerDidChangeQueue(_ tracks: [Track])
-
-  /// Called when the repeat mode changes.
-  func playerDidChangeRepeatMode(_ event: RepeatModeChangedEvent)
-
-  /// Called when shuffle mode changes.
-  func playerDidChangeShuffleEnabled(_ enabled: Bool)
-
-  /// Called when the player encounters an error.
-  func playerDidError(_ event: PlaybackErrorEvent)
-
+protocol TrackPlayerCallbacks: PlaybackCoordinatorCallbacks {
   // MARK: - Metadata Events
 
   /// Called when common metadata is received.

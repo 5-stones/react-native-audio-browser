@@ -16,7 +16,7 @@ extension ChapterMetadata {
       // to a URL (base64 data URL or temp file).
       // See also: Android implementation in MetadataAdapter.kt
       var title: String?
-      var url: String?
+      let url: String? = nil
 
       for item in group.items {
         if let commonKey = item.commonKey {

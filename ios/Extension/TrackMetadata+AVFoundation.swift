@@ -12,7 +12,7 @@ extension TrackMetadata {
     var albumTitle: String?
     var subtitle: String?
     var description: String?
-    var artworkUri: String?
+    let artworkUri: String? = nil
     var trackNumber: String?
     var composer: String?
     var conductor: String?

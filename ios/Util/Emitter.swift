@@ -1,20 +1,42 @@
 import Foundation
 
+/// Opaque token returned by `addListener` for targeted removal.
+public struct EmitterToken: Sendable {
+  fileprivate let id: Int
+}
+
 /// Generic event emitter that allows multiple listeners for a single event type
 public final class Emitter<T>: @unchecked Sendable {
   private let lock = NSLock()
-  private var snapshot: [(T) -> Void] = []
+  private var nextId = 0
+  private var snapshot: [(id: Int, handler: (T) -> Void)] = []
 
   public init() {}
 
   /// Adds a listener to this emitter
   /// - Parameter listener: The callback to invoke when an event is emitted
-  public func addListener(_ listener: @escaping (T) -> Void) {
+  /// - Returns: A token that can be passed to `removeListener` for targeted removal
+  @discardableResult
+  public func addListener(_ listener: @escaping (T) -> Void) -> EmitterToken {
+    lock.lock()
+    defer { lock.unlock() }
+
+    let id = nextId
+    nextId += 1
+    var next = snapshot
+    next.append((id: id, handler: listener))
+    snapshot = next
+    return EmitterToken(id: id)
+  }
+
+  /// Removes a specific listener by its token
+  /// - Parameter token: The token returned by `addListener`
+  public func removeListener(_ token: EmitterToken) {
     lock.lock()
     defer { lock.unlock() }
 
     var next = snapshot
-    next.append(listener)
+    next.removeAll { $0.id == token.id }
     snapshot = next
   }
 
@@ -32,8 +54,8 @@ public final class Emitter<T>: @unchecked Sendable {
     let current = snapshot // O(1) reference bump; no array copy here
     lock.unlock()
 
-    for listener in current {
-      listener(event)
+    for entry in current {
+      entry.handler(event)
     }
   }
 

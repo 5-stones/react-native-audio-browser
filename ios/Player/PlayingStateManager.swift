@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(NitroModules)
 import NitroModules
+#endif
 
 /// Manages the playing state (playing and buffering flags) and notifies when they change.
 @MainActor

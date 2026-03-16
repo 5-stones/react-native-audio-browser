@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(NitroModules)
 import NitroModules
+#endif
 
 /**
  Manages periodic progress updates during playback.

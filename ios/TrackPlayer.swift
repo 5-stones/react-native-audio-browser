@@ -6,21 +6,16 @@ import os.log
 
 @MainActor
 class TrackPlayer {
-  // MARK: - Internal (extension access)
-  // These members are internal (not private) because extension files
-  // (TrackPlayer+ObserverCallbacks, TrackPlayer+TrackManagement) need access.
-
   let logger = Logger(subsystem: "com.audiobrowser", category: "TrackPlayer")
-  let errorHandler: PlaybackErrorHandler
-  weak var callbacks: TrackPlayerCallbacks?
-  var lastIndex: Int = -1
-  var lastTrack: Track?
+
+  // MARK: - Coordinator
+
+  let coordinator: PlaybackCoordinator
 
   // MARK: - Dependencies
 
   let nowPlayingInfoController: NowPlayingInfoController
   let remoteCommandController: RemoteCommandController
-  let sleepTimerManager = SleepTimerManager()
   private let retryManager = RetryManager()
 
   /// Retry configuration for load errors (network failures, timeouts, etc.)
@@ -31,8 +26,6 @@ class TrackPlayer {
   }
 
   /// Network monitor for accelerating retries when connectivity is restored.
-  /// When set, retries will trigger immediately when network comes back online
-  /// instead of waiting for the full exponential backoff delay.
   weak var networkMonitor: NetworkMonitor? {
     didSet {
       retryManager.networkMonitor = networkMonitor
@@ -45,47 +38,7 @@ class TrackPlayer {
   /// Handles Now Playing metadata and artwork updates.
   let nowPlayingUpdater: NowPlayingUpdater
 
-  // MARK: - Queue Manager
-
-  let queue = QueueManager()
-
-  // MARK: - Queue Forwarding Properties
-
-  var tracks: [Track] { queue.tracks }
-  var currentIndex: Int { queue.currentIndex }
-  var currentTrack: Track? { queue.currentTrack }
-  var queueSourcePath: String? { queue.queueSourcePath }
-  var nextTracks: [Track] { queue.nextTracks }
-  var previousTracks: [Track] { queue.previousTracks }
-  var isLastInPlaybackOrder: Bool { queue.isLastInPlaybackOrder }
-
-  /// The repeat mode for the queue player.
-  var repeatMode: RepeatMode {
-    get { queue.repeatMode }
-    set {
-      guard queue.repeatMode != newValue else { return }
-      queue.repeatMode = newValue
-      remoteCommandController.updateRepeatMode(newValue)
-      callbacks?.playerDidChangeRepeatMode(
-        RepeatModeChangedEvent(repeatMode: newValue)
-      )
-    }
-  }
-
-  /// Whether shuffle mode is enabled.
-  /// When enabled, next/previous traverse the shuffle order instead of sequential order.
-  var shuffleEnabled: Bool {
-    get { queue.shuffleEnabled }
-    set {
-      guard queue.shuffleEnabled != newValue else { return }
-      queue.shuffleEnabled = newValue
-      remoteCommandController.updateShuffleMode(newValue)
-      callbacks?.playerDidChangeShuffleEnabled(newValue)
-    }
-  }
-
   // MARK: - AVPlayer Properties
-  // avPlayer and loadSeekCoordinator are internal for extension file access.
 
   var avPlayer = AVPlayer()
 
@@ -101,7 +54,7 @@ class TrackPlayer {
   private lazy var playerTimeObserver: PlayerTimeObserver = .init(
     periodicObserverTimeInterval: CMTime(seconds: 1, preferredTimescale: 1000),
     onAudioDidStart: { [weak self] in
-      self?.audioDidStart()
+      self?.coordinator.audioDidStart()
     },
     onSecondElapsed: { [weak self] seconds in
       self?.nowPlayingUpdater.setCurrentTime(seconds: seconds)
@@ -110,11 +63,11 @@ class TrackPlayer {
 
   private lazy var playerItemNotificationObserver: PlayerItemNotificationObserver = .init(
     onDidPlayToEndTime: { [weak self] in
-      self?.handleTrackDidPlayToEndTime()
+      self?.coordinator.handleTrackDidPlayToEndTime()
     },
     onFailedToPlayToEndTime: { [weak self] error in
       let effectiveError = error ?? self?.avPlayer.currentItem?.error
-      self?.errorHandler.handleError(effectiveError, context: .playback)
+      self?.coordinator.errorHandler.handleError(effectiveError, context: .playback)
     },
   )
 
@@ -133,42 +86,60 @@ class TrackPlayer {
     },
   )
 
-  private lazy var progressUpdateManager: PlaybackProgressUpdateManager =
-    PlaybackProgressUpdateManager { [weak self] in
-      guard let self, currentIndex >= 0 else { return }
-      let progressEvent = PlaybackProgressUpdatedEvent(
-        track: Double(currentIndex),
-        position: currentTime,
-        duration: duration,
-        buffered: bufferedPosition,
-      )
-      callbacks?.playerDidUpdateProgress(progressEvent)
+  // MARK: - Callbacks
+
+  weak var callbacks: TrackPlayerCallbacks? {
+    didSet {
+      coordinator.callbacks = callbacks
     }
-
-  lazy var playingStateManager: PlayingStateManager = PlayingStateManager { [weak self] state in
-    self?.callbacks?.playerDidChangePlayingState(state)
   }
 
-  let loadSeekCoordinator = LoadSeekCoordinator()
-  var playbackError: TrackPlayerError.PlaybackError?
+  // MARK: - Coordinator Forwarding Properties
 
-  private(set) var lastPlayerTimeControlStatus: AVPlayer.TimeControlStatus = .paused
+  var state: PlaybackState { coordinator.state }
+  var playbackError: TrackPlayerError.PlaybackError? {
+    get { coordinator.playbackError }
+    set { coordinator.playbackError = newValue }
+  }
+  var lastIndex: Int {
+    get { coordinator.lastIndex }
+    set { coordinator.lastIndex = newValue }
+  }
+  var lastTrack: Track? {
+    get { coordinator.lastTrack }
+    set { coordinator.lastTrack = newValue }
+  }
+  var tracks: [Track] { coordinator.tracks }
+  var currentIndex: Int { coordinator.currentIndex }
+  var currentTrack: Track? { coordinator.currentTrack }
+  var queueSourcePath: String? { coordinator.queueSourcePath }
+  var nextTracks: [Track] { coordinator.nextTracks }
+  var previousTracks: [Track] { coordinator.previousTracks }
+  var isLastInPlaybackOrder: Bool { coordinator.isLastInPlaybackOrder }
+  var playbackActive: Bool { coordinator.playbackActive }
+  var sleepTimerManager: SleepTimerManager { coordinator.sleepTimerManager as! SleepTimerManager }
+  var queue: QueueManager { coordinator.queue }
+  var loadSeekCoordinator: LoadSeekCoordinator { coordinator.loadSeekCoordinator }
+  var playingStateManager: PlayingStateManager { coordinator.playingStateManager }
+  var errorHandler: PlaybackErrorHandler { coordinator.errorHandler }
 
-  func getPlayback() -> Playback {
-    Playback(state: state, error: playbackError?.toNitroError())
+  var repeatMode: RepeatMode {
+    get { coordinator.repeatMode }
+    set { coordinator.repeatMode = newValue }
   }
 
-  func getRepeatMode() -> RepeatMode {
-    repeatMode
+  var shuffleEnabled: Bool {
+    get { coordinator.shuffleEnabled }
+    set { coordinator.shuffleEnabled = newValue }
   }
 
-  func setRepeatMode(_ mode: RepeatMode) {
-    repeatMode = mode
+  var playWhenReady: Bool {
+    get { coordinator.playWhenReady }
+    set { coordinator.playWhenReady = newValue }
   }
 
   /**
    Controls the time pitch algorithm applied to each track loaded into the player.
-   If the loaded `AudioItem` conforms to `TimePitcher`-protocol this will be overriden.
    */
   var audioTimePitchAlgorithm: AVAudioTimePitchAlgorithm = .timeDomain
 
@@ -181,141 +152,17 @@ class TrackPlayer {
     }
   }
 
-  /**
-    Handles the `playWhenReady` setting while executing a given action.
-
-    This method takes an optional `Bool` value and a closure representing an action to execute.
-    If the `Bool` value is not `nil`, `self.playWhenReady` is set accordingly either before or
-    after executing the action.
-
-    - Parameters:
-      - playWhenReady: Optional `Bool` to set `self.playWhenReady`.
-                       - If `true`, `self.playWhenReady` will be set after executing the action.
-                       - If `false`, `self.playWhenReady` will be set before executing the action.
-                       - If `nil`, `self.playWhenReady` will not be changed.
-      - action: A closure representing the action to execute. This closure can throw an error.
-
-    - Throws: This function will propagate any errors thrown by the `action` closure.
-   */
-  func handlePlayWhenReady(_ playWhenReady: Bool?, action: () throws -> Void) rethrows {
-    if playWhenReady == false {
-      self.playWhenReady = false
-    }
-
-    try action()
-
-    if playWhenReady == true {
-      self.playWhenReady = true
-    }
-  }
-
-  // MARK: - AVPlayer State and Computed Properties
-
-  private(set) var state: PlaybackState = .none
-
-  // MARK: - Playback State Machine
-
-  func transition(_ event: PlaybackEvent) {
-    guard let newState = nextPlaybackState(from: state, on: event) else { return }
-
-    // Allow error-to-error transitions to update the error and emit callbacks,
-    // even though the state enum value doesn't change.
-    if newState == state, case .errorOccurred(let error) = event {
-      playbackError = error
-      callbacks?.playerDidChangePlayback(
-        Playback(state: state, error: playbackError?.toNitroError()),
-      )
-      callbacks?.playerDidError(
-        PlaybackErrorEvent(error: playbackError?.toNitroError()),
-      )
-      return
-    }
-
-    guard newState != state else { return }
-    let oldState = state
-    state = newState
-    applySideEffects(old: oldState, new: newState, event: event)
-    emitStateChange(old: oldState, new: newState)
-  }
-
-  private func applySideEffects(old: PlaybackState, new: PlaybackState, event: PlaybackEvent) {
-    // Error lifecycle
-    if old == .error, new != .error {
-      playbackError = nil
-    }
-    if case .errorOccurred(let error) = event {
-      playbackError = error
-    }
-
-    // State-specific effects
-    switch new {
-    case .ready:
-      setTimePitchingAlgorithmForCurrentItem()
-      if playWhenReady { startPlayback() }
-    case .loading:
-      setTimePitchingAlgorithmForCurrentItem()
-    default: break
-    }
-
-    // Now Playing updates for active states
-    switch new {
-    case .ready, .loading, .playing, .paused:
-      nowPlayingUpdater.updatePlaybackValues(duration: duration, rate: rate, currentTime: currentTime)
-      nowPlayingUpdater.updatePlaybackState(playWhenReady: playWhenReady)
-    default: break
-    }
-
-    progressUpdateManager.onPlaybackStateChanged(new)
-    playingStateManager.update(playWhenReady: playWhenReady, state: new)
-  }
-
-  private func emitStateChange(old: PlaybackState, new: PlaybackState) {
-    // Playback state change — always emitted
-    callbacks?.playerDidChangePlayback(
-      Playback(state: new, error: playbackError?.toNitroError()),
-    )
-
-    // Error callback — emitted when entering or leaving error state
-    // (preserves current ordering: playerDidChangePlayback fires first)
-    if new == .error || (old == .error && new != .error) {
-      callbacks?.playerDidError(
-        PlaybackErrorEvent(error: playbackError?.toNitroError()),
-      )
-    }
-
-    // Queue ended — when playback ends on the last track
-    if new == .ended, isLastInPlaybackOrder {
-      callbacks?.playerDidEndQueue(
-        PlaybackQueueEndedEvent(track: Double(currentIndex), position: currentTime),
-      )
-    }
-  }
-
-  var playbackActive: Bool {
-    switch state {
-    case .none, .stopped, .ended, .error:
-      false
-    default: true
-    }
-  }
-
   var reasonForWaitingToPlay: AVPlayer.WaitingReason? {
     avPlayer.reasonForWaitingToPlay
   }
 
-  // MARK: - Getters from AVPlayerWrapper
+  // MARK: - Getters from AVPlayer
 
-  /**
-   The elapsed playback time of the current track.
-   */
   var currentTime: Double {
     let seconds = avPlayer.currentTime().seconds
     return seconds.isNaN ? 0 : seconds
   }
 
-  /**
-   The duration of the current track.
-   */
   var duration: Double {
     guard let item = avPlayer.currentItem else { return 0.0 }
 
@@ -333,50 +180,16 @@ class TrackPlayer {
     return 0.0
   }
 
-  /**
-   The bufferedPosition of the active track
-   */
   var bufferedPosition: Double {
     avPlayer.currentItem?.loadedTimeRanges.last?.timeRangeValue.end.seconds ?? 0
   }
 
-  /**
-   The current state of the underlying `TrackPlayer`.
-   */
   var playerState: PlaybackState {
     state
   }
 
-  // MARK: - Setters for AVPlayerWrapper
+  // MARK: - Setters for AVPlayer
 
-  /**
-   Whether the player should start playing automatically when the track is ready.
-   */
-  var playWhenReady: Bool = false {
-    didSet {
-      if playWhenReady == true, state == .error || state == .stopped {
-        reload(startFromCurrentTime: state == .error)
-      }
-      if state != .loading {
-        if playWhenReady {
-          startPlayback()
-        } else {
-          pausePlayback()
-        }
-      }
-
-      if oldValue != playWhenReady {
-        callbacks?.playerDidChangePlayWhenReady(playWhenReady)
-        playingStateManager.update(playWhenReady: playWhenReady, state: state)
-      }
-    }
-  }
-
-  /**
-   The amount of milliseconds to be buffered by the player. Default value is 0, this means the AVPlayer will choose an appropriate level of buffering. Setting `bufferDuration` to larger than zero automatically disables `automaticallyWaitsToMinimizeStalling`. Setting it back to zero automatically enables `automaticallyWaitsToMinimizeStalling`.
-
-   [Read more from Apple Documentation](https://developer.apple.com/documentation/avfoundation/avplayeritem/1643630-preferredforwardbufferduration)
-   */
   var bufferDuration: Double = 0 {
     didSet {
       avPlayer.automaticallyWaitsToMinimizeStalling = bufferDuration == 0
@@ -384,11 +197,6 @@ class TrackPlayer {
     }
   }
 
-  /**
-   Indicates whether the player should automatically delay playback in order to minimize stalling. Setting this to true will also set `bufferDuration` back to `0`.
-
-   [Read more from Apple Documentation](https://developer.apple.com/documentation/avfoundation/avplayer/1643482-automaticallywaitstominimizestal)
-   */
   var automaticallyWaitsToMinimizeStalling: Bool {
     get { avPlayer.automaticallyWaitsToMinimizeStalling }
     set {
@@ -409,10 +217,12 @@ class TrackPlayer {
     set { avPlayer.isMuted = newValue }
   }
 
-  var rate: Float = 1.0 {
-    didSet {
-      avPlayer.rate = rate
-      nowPlayingUpdater.updatePlaybackValues(duration: duration, rate: rate, currentTime: currentTime)
+  var rate: Float {
+    get { coordinator.rate }
+    set {
+      coordinator.rate = newValue
+      avPlayer.rate = newValue
+      nowPlayingUpdater.updatePlaybackValues(duration: duration, rate: newValue, currentTime: currentTime)
     }
   }
 
@@ -426,14 +236,13 @@ class TrackPlayer {
     nowPlayingUpdater = NowPlayingUpdater(nowPlayingInfoController: nowPlayingInfoController)
     remoteCommandController = RemoteCommandController(callbacks: callbacks)
     self.callbacks = callbacks
-    errorHandler = PlaybackErrorHandler(retryHandler: retryManager)
-    queue.delegate = self
-    mediaLoader.delegate = self
 
-    // Configure sleep timer
-    sleepTimerManager.onComplete = { [weak self] in
-      self?.pause()
-    }
+    let errorHandler = PlaybackErrorHandler(retryHandler: retryManager)
+    coordinator = PlaybackCoordinator(errorHandler: errorHandler, sleepTimerManager: SleepTimerManager())
+    coordinator.effectHandler = self
+    coordinator.callbacks = callbacks
+
+    mediaLoader.delegate = self
 
     // Configure retry manager
     retryManager.shouldRetry = { [weak self] in
@@ -443,13 +252,7 @@ class TrackPlayer {
       self?.reload(startFromCurrentTime: startFromCurrentTime)
     }
 
-    // Wire error handler to state machine
-    errorHandler.onError = { [weak self] error in
-      self?.transition(.errorOccurred(error))
-    }
-
     // Handle command center changes when MPNowPlayingSession is created/destroyed (iOS 16+)
-    // This callback is guaranteed to be called on the main thread by NowPlayingInfoController
     nowPlayingInfoController.onRemoteCommandCenterChanged = { [weak self] newCommandCenter in
       MainActor.assumeIsolated {
         self?.remoteCommandController.switchCommandCenter(newCommandCenter)
@@ -459,29 +262,22 @@ class TrackPlayer {
     setupAVPlayer()
   }
 
+  // MARK: - Coordinator Forwarding Methods
+
+  func getPlayback() -> Playback { coordinator.getPlayback() }
+  func getRepeatMode() -> RepeatMode { coordinator.getRepeatMode() }
+  func setRepeatMode(_ mode: RepeatMode) { coordinator.setRepeatMode(mode) }
+  func handlePlayWhenReady(_ playWhenReady: Bool?, action: () throws -> Void) rethrows {
+    try coordinator.handlePlayWhenReady(playWhenReady, action: action)
+  }
+  func transition(_ event: PlaybackEvent) { coordinator.transition(event) }
+
   // MARK: - Player Actions
 
-  /**
-   Will replace the current track with a new one and load it into the player.
-
-   - parameter track: The Track to replace the current track.
-   - parameter playWhenReady: Optional, whether to start playback when the track is ready.
-   */
   func load(_ track: Track, playWhenReady: Bool? = nil) {
-    handlePlayWhenReady(playWhenReady) {
-      if queue.currentIndex == -1 {
-        let changed = queue.add([track], initialIndex: 0)
-        if changed { handleCurrentTrackChanged() }
-      } else {
-        queue.replace(queue.currentIndex, track)
-        handleCurrentTrackChanged()
-      }
-    }
+    coordinator.load(track, playWhenReady: playWhenReady)
   }
 
-  /**
-   Toggle playback status.
-   */
   func togglePlaying() {
     switch avPlayer.timeControlStatus {
     case .playing, .waitingToPlayAtSpecifiedRate:
@@ -493,41 +289,17 @@ class TrackPlayer {
     }
   }
 
-  /**
-   Start playback
-   */
-  func play() {
-    playWhenReady = true
-  }
+  func play() { coordinator.play() }
+  func pause() { coordinator.pause() }
+  func togglePlayback() { coordinator.togglePlayback() }
 
-  /**
-   Pause playback
-   */
-  func pause() {
-    playWhenReady = false
-  }
-
-  /**
-   Toggle playback between play and pause
-   */
-  func togglePlayback() {
-    playWhenReady = !playWhenReady
-  }
-
-  /**
-   Stop playback
-   */
   func stop() {
-    transition(.stopped)
+    coordinator.stop()
     if currentTrack?.live != true {
       seekTo(0)
     }
-    playWhenReady = false
   }
 
-  /**
-   Reload the current track.
-   */
   func reload(startFromCurrentTime: Bool) {
     var time: Double? = nil
     if startFromCurrentTime {
@@ -543,25 +315,13 @@ class TrackPlayer {
     }
   }
 
-  /**
-   Seek to a specific time in the track.
-   */
   func seekTo(_ seconds: TimeInterval) {
     seekTo(seconds, completion: { _ in })
   }
 
-  /**
-   Seek to a specific time in the track with a completion handler.
-
-   - parameter seconds: The time to seek to.
-   - parameter completion: Called when the seek operation completes. The Bool parameter indicates whether the seek finished successfully (true) or was interrupted/deferred (false).
-   */
   func seekTo(_ seconds: TimeInterval, completion: @escaping @MainActor (Bool) -> Void) {
-    // If a track is currently being loaded asynchronously, defer the seek until it's ready.
     if state == .loading {
       loadSeekCoordinator.capture(position: seconds)
-      // The coordinator executes the deferred seek once the item is ready; replay() is the
-      // only caller that uses completion, and it's never called during loading.
       completion(false)
     } else if avPlayer.currentItem != nil {
       let time = CMTime(seconds: seconds, preferredTimescale: 1000)
@@ -574,29 +334,19 @@ class TrackPlayer {
           }
         }
     } else {
-      // No track loaded and not loading - seek fails immediately
       completion(false)
     }
   }
 
-  /**
-   Seek by relative a time offset in the track.
-   */
   func seekBy(_ offset: TimeInterval) {
-    // Calculate the target time based on current state
     let targetTime: TimeInterval
     if state == .loading {
-      // If loading, offset from pending seek (or 0 if no pending seek)
       targetTime = (loadSeekCoordinator.pendingTime ?? 0) + offset
     } else if let currentItem = avPlayer.currentItem {
-      // If playing, offset from current position
       targetTime = currentItem.currentTime().seconds + offset
     } else {
-      // No track and not loading - nothing to seek in
       return
     }
-
-    // Delegate to absolute seek
     seekTo(targetTime)
   }
 
@@ -607,32 +357,27 @@ class TrackPlayer {
   }
 
   func clear() {
-    let changed = queue.clear()
-    if changed { handleCurrentTrackChanged() }
-    unloadAVPlayer()
+    coordinator.clear()
     nowPlayingInfoController.unlinkPlayer()
-    nowPlayingInfoController.clear()
   }
 
-  /// Tears down the player completely, stopping audio and removing all remote command targets.
-  /// Called when the HybridAudioBrowser is being replaced (e.g., JS runtime reload).
   func destroy() {
     clear()
     remoteCommandController.disableAll()
   }
 
-  // MARK: - Private
+  // MARK: - Progress Updates
 
-  private func setTimePitchingAlgorithmForCurrentItem() {
-    // Use player's default pitch algorithm (per-track pitch control not in Nitro API)
+  func setProgressUpdateInterval(_ interval: TimeInterval?) {
+    coordinator.setProgressUpdateInterval(interval)
+  }
+
+  // MARK: - AVPlayer Management
+
+  func setTimePitchingAlgorithmForCurrentItem() {
     avPlayer.currentItem?.audioTimePitchAlgorithm = audioTimePitchAlgorithm
   }
 
-  // MARK: - AVPlayer Management (extension access)
-  // startPlayback, pausePlayback, clearCurrentAVItem, startObservingAVPlayerItem,
-  // stopObservingAVPlayerItem, and transition are internal for extension file access.
-
-  /// Starts playback at the configured rate
   func startPlayback() {
     avPlayer.play()
     if rate != 1.0 {
@@ -640,7 +385,6 @@ class TrackPlayer {
     }
   }
 
-  /// Pauses playback
   func pausePlayback() {
     avPlayer.pause()
   }
@@ -663,17 +407,13 @@ class TrackPlayer {
   }
 
   private func recreateAVPlayer() {
-    // Clear directly rather than via transition() — the caller (loadAVPlayer)
-    // immediately follows with transition(.trackLoading) which handles the
-    // .error → .loading transition and its side effects.
-    playbackError = nil
+    coordinator.playbackError = nil
     playerTimeObserver.unregisterForBoundaryTimeEvents()
     playerTimeObserver.unregisterForPeriodicEvents()
     playerObserver.stopObserving()
     stopObservingAVPlayerItem()
     clearCurrentAVItem()
 
-    // Unlink old player before creating new one
     nowPlayingInfoController.unlinkPlayer()
 
     avPlayer = AVPlayer()
@@ -681,7 +421,6 @@ class TrackPlayer {
   }
 
   private func setupAVPlayer() {
-    // disabled since we're not making use of video playback
     avPlayer.allowsExternalPlayback = false
 
     playerObserver.avPlayer = avPlayer
@@ -691,14 +430,11 @@ class TrackPlayer {
     playerTimeObserver.registerForBoundaryTimeEvents()
     playerTimeObserver.registerForPeriodicTimeEvents()
 
-    // Link AVPlayer to NowPlayingInfoController for automatic publishing on iOS 16+
     nowPlayingInfoController.linkPlayer(avPlayer)
 
-    // Apply initial playback state
     if playWhenReady {
       startPlayback()
     } else {
-      // Ensure defaultRate is set for when playback starts later
       if #available(iOS 16.0, *) {
         avPlayer.defaultRate = rate
       }
@@ -723,24 +459,234 @@ class TrackPlayer {
     transition(.trackUnloaded)
   }
 
-  // MARK: - Internal Event Handlers
+  // MARK: - Observer Callbacks (map AVFoundation → coordinator)
 
-  /**
-   Sets the progress update interval.
-   - Parameter interval: The interval in seconds, or nil to disable progress updates
-   */
-  func setProgressUpdateInterval(_ interval: TimeInterval?) {
-    progressUpdateManager.setUpdateInterval(interval)
+  private func avPlayerDidChangeTimeControlStatus(_ status: AVPlayer.TimeControlStatus) {
+    let mapped: PlayerTimeControlStatus
+    switch status {
+    case .paused: mapped = .paused
+    case .waitingToPlayAtSpecifiedRate: mapped = .waitingToPlayAtSpecifiedRate
+    case .playing: mapped = .playing
+    @unknown default: return
+    }
+    coordinator.avPlayerDidChangeTimeControlStatus(mapped)
+  }
+
+  private func avPlayerStatusDidChange(_ status: AVPlayer.Status) {
+    if status == .failed {
+      coordinator.avPlayerStatusDidFail(error: avPlayer.currentItem?.error)
+    }
+  }
+
+  private func avItemStatusDidChange(_ status: AVPlayerItem.Status, error: Error?) {
+    let mapped: PlayerItemStatus
+    switch status {
+    case .unknown: mapped = .unknown
+    case .readyToPlay: mapped = .readyToPlay
+    case .failed: mapped = .failed
+    @unknown default: return
+    }
+    coordinator.avItemStatusDidChange(mapped, error: error ?? avPlayer.currentItem?.error)
+  }
+
+  private func avItemDidUpdatePlaybackLikelyToKeepUp(_ playbackLikelyToKeepUp: Bool) {
+    guard playbackLikelyToKeepUp else { return }
+    guard avPlayer.currentItem != nil else { return }
+
+    // Execute any pending seek that arrived after MediaLoader completed
+    if loadSeekCoordinator.executeIfPending(on: avPlayer, delegate: self) {
+      return
+    }
+
+    coordinator.avItemDidUpdatePlaybackLikelyToKeepUp(playbackLikelyToKeepUp)
   }
 
   func handleSeekCompleted(to seconds: Double, didFinish: Bool) {
-    // If this was a deferred load-seek, transition out of .loading state
-    // (unless a new seek was queued while this one was in-flight)
     if loadSeekCoordinator.seekDidComplete(on: avPlayer, delegate: self), state == .loading {
-      logger.debug("[loadSeek] seek landed at \(seconds)s (finished=\(didFinish)) → .ready")
-      transition(.loadSeekCompleted)
+      coordinator.handleSeekCompleted(to: seconds, didFinish: didFinish)
+    } else {
+      // Not a load-seek, just update now playing
+      nowPlayingUpdater.setCurrentTime(seconds: seconds)
     }
-    nowPlayingUpdater.setCurrentTime(seconds: seconds)
     callbacks?.playerDidCompleteSeek(position: seconds, didFinish: didFinish)
   }
 }
+
+// MARK: - PlaybackEffectHandler
+
+extension TrackPlayer: PlaybackEffectHandler {
+  var hasLoadedAsset: Bool {
+    mediaLoader.asset != nil
+  }
+
+  func clearCurrentItem() {
+    clearCurrentAVItem()
+  }
+
+  func stopObservingCurrentItem() {
+    stopObservingAVPlayerItem()
+  }
+
+  func loadTrack(src: String) {
+    mediaLoader.resolveAndLoad(src: src)
+  }
+
+  func reloadTrack(startFromCurrentTime: Bool) {
+    reload(startFromCurrentTime: startFromCurrentTime)
+  }
+
+  func unloadTrack() {
+    unloadAVPlayer()
+  }
+
+  func cancelMediaLoading() {
+    mediaLoader.cancelAll()
+  }
+
+  func seekToStart() {
+    seekTo(0)
+  }
+
+  func replayCurrentTrack() {
+    seekTo(0) { [weak self] succeeded in
+      if succeeded { self?.play() }
+    }
+  }
+
+  func updateNowPlayingValues(duration: Double, rate: Float, currentTime: Double) {
+    nowPlayingUpdater.updatePlaybackValues(duration: duration, rate: rate, currentTime: currentTime)
+  }
+
+  func updateNowPlayingState(playWhenReady: Bool) {
+    nowPlayingUpdater.updatePlaybackState(playWhenReady: playWhenReady)
+  }
+
+  func loadNowPlayingMetadata(for track: Track, rate: Float) {
+    // Reset playback values without updating, because that will happen in
+    // the nowPlayingUpdater.loadMetaValues call straight after:
+    nowPlayingInfoController.setWithoutUpdate(keyValues: [
+      MediaItemProperty.duration(nil),
+      NowPlayingInfoProperty.playbackRate(nil),
+      NowPlayingInfoProperty.elapsedPlaybackTime(nil),
+    ])
+    nowPlayingUpdater.loadMetaValues(for: track, rate: rate)
+  }
+
+  func resetNowPlayingValues() {
+    // Intentionally empty — loadNowPlayingMetadata handles the reset
+  }
+
+  func clearNowPlaying() {
+    nowPlayingInfoController.clear()
+  }
+
+  func setNowPlayingCurrentTime(seconds: Double) {
+    nowPlayingUpdater.setCurrentTime(seconds: seconds)
+  }
+
+  func updateRemoteRepeatMode(_ mode: RepeatMode) {
+    remoteCommandController.updateRepeatMode(mode)
+  }
+
+  func updateRemoteShuffleMode(_ enabled: Bool) {
+    remoteCommandController.updateShuffleMode(enabled)
+  }
+}
+
+// MARK: - SeekCompletionHandler
+
+extension TrackPlayer: SeekCompletionHandler {}
+
+// MARK: - TrackSelectionPlayer
+
+extension TrackPlayer: TrackSelectionPlayer {}
+
+// MARK: - Queue Methods (thin forwarders)
+
+extension TrackPlayer {
+  func replace(_ index: Int, _ track: Track) {
+    coordinator.replace(index, track)
+  }
+
+  func setQueue(_ newTracks: [Track], initialIndex: Int = 0, playWhenReady: Bool? = nil, sourcePath: String? = nil) {
+    coordinator.setQueue(newTracks, initialIndex: initialIndex, playWhenReady: playWhenReady, sourcePath: sourcePath)
+  }
+
+  func add(_ tracks: [Track], initialIndex: Int? = nil, playWhenReady: Bool? = nil) {
+    coordinator.add(tracks, initialIndex: initialIndex, playWhenReady: playWhenReady)
+  }
+
+  func add(_ tracks: [Track], at index: Int) throws {
+    try coordinator.add(tracks, at: index)
+  }
+
+  func next() {
+    coordinator.next()
+  }
+
+  func previous() {
+    coordinator.previous()
+  }
+
+  func remove(_ index: Int) throws {
+    try coordinator.remove(index)
+  }
+
+  func skipTo(_ index: Int, playWhenReady: Bool? = nil) throws {
+    try coordinator.skipTo(index, playWhenReady: playWhenReady)
+  }
+
+  func move(fromIndex: Int, toIndex: Int) throws {
+    try coordinator.move(fromIndex: fromIndex, toIndex: toIndex)
+  }
+
+  func removeUpcomingTracks() {
+    coordinator.removeUpcomingTracks()
+  }
+
+  func replay() {
+    coordinator.replay()
+  }
+}
+
+// MARK: - MediaLoaderDelegate
+
+extension TrackPlayer: MediaLoaderDelegate {
+  func mediaLoaderDidPrepareItem(_ item: AVPlayerItem) {
+    nowPlayingInfoController.prepareItem(item)
+    avPlayer.replaceCurrentItem(with: item)
+    startObservingAVPlayerItem(item)
+    if playWhenReady { startPlayback() }
+
+    if !loadSeekCoordinator.executeIfPending(on: avPlayer, delegate: self) {
+      if item.isPlaybackLikelyToKeepUp {
+        avItemDidUpdatePlaybackLikelyToKeepUp(true)
+      }
+    }
+  }
+
+  func mediaLoaderDidFailWithRetryableError(_ error: Error) {
+    coordinator.errorHandler.handleError(error, context: .mediaLoad)
+  }
+
+  func mediaLoaderDidFailWithUnplayableTrack() {
+    transition(.errorOccurred(.trackWasUnplayable))
+  }
+
+  func mediaLoaderDidFailWithError(_ error: TrackPlayerError.PlaybackError) {
+    transition(.errorOccurred(error))
+  }
+
+  func mediaLoaderDidReceiveCommonMetadata(_ items: [AVMetadataItem]) {
+    callbacks?.playerDidReceiveCommonMetadata(items)
+  }
+
+  func mediaLoaderDidReceiveChapterMetadata(_ groups: [AVTimedMetadataGroup]) {
+    callbacks?.playerDidReceiveChapterMetadata(groups)
+  }
+
+  func mediaLoaderDidReceiveTimedMetadata(_ groups: [AVTimedMetadataGroup]) {
+    callbacks?.playerDidReceiveTimedMetadata(groups)
+  }
+}
+

@@ -7,7 +7,7 @@ typealias SleepTimerState = SleepTimer
 /// Manages sleep timer functionality for the audio player.
 /// Supports both time-based timers and end-of-track timers.
 @MainActor
-class SleepTimerManager {
+class SleepTimerManager: SleepTimerHandling {
   // MARK: - Properties
 
   // nonisolated(unsafe) for deinit cleanup — deinit is always nonisolated in Swift 6.
