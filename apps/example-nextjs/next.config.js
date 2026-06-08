@@ -13,7 +13,7 @@ const config = {
   },
   transpilePackages: [
     'react-native-safe-area-context',
-    'react-native-audio-browser',
+    '@5stones/react-native-audio-browser',
     'react-native-web',
     'react-native'
   ],
@@ -44,7 +44,7 @@ const config = {
         '../../node_modules/react-native-safe-area-context'
       ),
       // Use web-specific implementation for TrackPlayer (source files)
-      'react-native-audio-browser$': path.resolve(
+      '@5stones/react-native-audio-browser$': path.resolve(
         __dirname,
         '../../src/index.ts'
       )

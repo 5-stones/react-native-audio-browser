@@ -5,7 +5,7 @@ import AudioBrowser, {
   setPlayWhenReady,
   updateNowPlaying,
   type BrowserConfiguration
-} from 'react-native-audio-browser'
+} from '@5stones/react-native-audio-browser'
 import {
   archiveLibraryEntry,
   archiveRoutes,

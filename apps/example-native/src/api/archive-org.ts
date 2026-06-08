@@ -2,7 +2,7 @@ import type {
   BrowserSource,
   ResolvedTrack,
   Track,
-} from 'react-native-audio-browser'
+} from '@5stones/react-native-audio-browser'
 
 const BASE = 'https://archive.org'
 

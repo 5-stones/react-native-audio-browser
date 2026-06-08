@@ -113,7 +113,7 @@ export class Player {
 
     // build dom element and attach shaka-player
     const element = document.createElement('audio')
-    element.setAttribute('id', 'react-native-audio-browser')
+    element.setAttribute('id', '@5stones/react-native-audio-browser')
     document.body.appendChild(element)
     this.element = element
 

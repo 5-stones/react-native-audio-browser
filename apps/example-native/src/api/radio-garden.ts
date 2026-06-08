@@ -4,7 +4,7 @@ import type {
   MediaRequestConfig,
   ResolvedTrack,
   Track,
-} from 'react-native-audio-browser'
+} from '@5stones/react-native-audio-browser'
 
 const sf = (name: string, bg: string) =>
   Platform.select({ ios: `sf:${name}?bg=${bg}&fg=#fff` })

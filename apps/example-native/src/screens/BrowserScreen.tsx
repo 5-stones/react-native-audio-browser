@@ -17,7 +17,7 @@ import {
   useFormattedNavigationError,
   usePath,
   useTabs
-} from 'react-native-audio-browser'
+} from '@5stones/react-native-audio-browser'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { FullScreenPlayer } from '../components/FullScreenPlayer'
 import { MiniPlayer } from '../components/MiniPlayer'

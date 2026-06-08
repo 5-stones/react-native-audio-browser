@@ -4,7 +4,7 @@ import {
   ResolvedTrack,
   setFavorites,
   Track,
-} from 'react-native-audio-browser'
+} from '@5stones/react-native-audio-browser'
 import { createMMKV } from 'react-native-mmkv'
 
 const storage = createMMKV()

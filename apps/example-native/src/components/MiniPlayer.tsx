@@ -16,7 +16,7 @@ import {
   useNowPlaying,
   usePlaybackError,
   usePlayingState
-} from 'react-native-audio-browser'
+} from '@5stones/react-native-audio-browser'
 
 type MiniPlayerProps = {
   onPress: () => void

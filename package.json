@@ -1,16 +1,16 @@
 {
-  "name": "react-native-audio-browser",
+  "name": "@5stones/react-native-audio-browser",
   "version": "0.1.0",
   "description": "react-native-audio-browser is a react native package built with Nitro",
   "keywords": [
     "react-native",
     "react-native-audio-browser"
   ],
-  "homepage": "https://github.com/radio-garden/react-native-audio-browser#readme",
-  "bugs": "https://github.com/radio-garden/react-native-audio-browser/issues",
+  "homepage": "https://github.com/5-stones/react-native-audio-browser#readme",
+  "bugs": "https://github.com/5-stones/react-native-audio-browser/issues",
   "license": "MIT",
   "author": "puckey",
-  "repository": "https://github.com/radio-garden/react-native-audio-browser.git",
+  "repository": "https://github.com/5-stones/react-native-audio-browser.git",
   "source": "src/index",
   "workspaces": [
     "apps/*",
