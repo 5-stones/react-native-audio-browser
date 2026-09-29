@@ -60,24 +60,24 @@ export class SearchManager {
     }
 
     // Transform artwork URLs on search results using async method with full Track access
+    // Gated per track inside the resolver, as on Android — a result carrying a
+    // plain `artwork` URL resolves even with no `artwork` config.
     const { request: requestConfig, artwork: artworkConfig } =
       this.browserManager.configuration
-    if (artworkConfig) {
-      results = await Promise.all(
-        results.map(async (track) => {
-          const artworkSource =
-            await RequestConfigBuilder.resolveArtworkSourceAsync(
-              track,
-              requestConfig,
-              artworkConfig
-            )
-          if (artworkSource && !track.artworkSource) {
-            return { ...track, artworkSource }
-          }
-          return track
-        })
-      )
-    }
+    results = await Promise.all(
+      results.map(async (track) => {
+        const artworkSource =
+          await RequestConfigBuilder.resolveArtworkSourceAsync(
+            track,
+            requestConfig,
+            artworkConfig
+          )
+        if (artworkSource && !track.artworkSource) {
+          return { ...track, artworkSource }
+        }
+        return track
+      })
+    )
 
     return results
   }
