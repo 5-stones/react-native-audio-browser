@@ -23,8 +23,10 @@ class TestPlayer extends Player {
 
 class TestQueuePlayer extends QueuePlayer {
   endedCount = 0
-  protected onTrackEnded(): void {
+  /** Stands in for a handler that advances, so `ended` stays suppressed. */
+  protected onTrackEnded(): boolean {
     this.endedCount++
+    return true
   }
   forceStopped(stopped: boolean): void {
     this._isStopped = stopped
@@ -61,7 +63,7 @@ describe('Player.dispatch', () => {
     const player = new TestPlayer()
     player.forceState('playing')
 
-    player.emit({ type: 'bufferingSufficient' })
+    player.emit({ type: 'bufferingSufficient', playWhenReady: false })
 
     expect(player.read().state).toBe('playing')
   })
@@ -70,7 +72,7 @@ describe('Player.dispatch', () => {
     const player = new TestPlayer()
     player.forceState('loading')
 
-    player.emit({ type: 'loadSeekCompleted' })
+    player.emit({ type: 'loadSeekCompleted', playWhenReady: false })
 
     expect(player.read().state).toBe('ready')
   })

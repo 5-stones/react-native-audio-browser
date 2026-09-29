@@ -43,10 +43,10 @@ import type {
   Output
 } from '../specs/audio-browser.nitro'
 import type {
-  RequestConfig,
   ResolvedTrack,
   Track,
-  TrackLoadEvent
+  TrackLoadEvent,
+  TransformableRequestConfig
 } from '../types'
 import type { NativeBrowserConfiguration } from '../types/browser-native'
 import { getTrackIdentity } from '../utils/getTrackIdentity'
@@ -57,7 +57,10 @@ import { NavigationErrorManager } from './browser/NavigationErrorManager'
 import { SearchManager } from './browser/SearchManager'
 import { followMediaRedirect } from './http/followMediaRedirect'
 import { HttpClient } from './http/HttpClient'
-import { RequestConfigBuilder } from './http/RequestConfigBuilder'
+import {
+  RequestConfigBuilder,
+  type ResolvedMediaRequest
+} from './http/RequestConfigBuilder'
 import { NowPlayingManager } from './player/NowPlayingManager'
 import { OptionsManager } from './player/OptionsManager'
 import { RemoteCommandController } from './player/RemoteCommandController'
@@ -102,7 +105,6 @@ export class NativeAudioBrowser
   private remoteCommands: RemoteCommandController
 
   // Player state
-  private currentLoadId = 0
   private progressTimer = new PlaybackTimer()
   private intervalTimer = new PlaybackTimer()
   private _online: boolean =
@@ -621,62 +623,177 @@ export class NativeAudioBrowser
    * Supports the transform callback for URL manipulation.
    * Mirrors Android's MediaFactory.getMediaRequestConfig behavior.
    */
-  private async resolveMediaRequest(src: string): Promise<RequestConfig> {
-    const { request, media } = this.browserManager.configuration
-    return RequestConfigBuilder.resolveMediaRequest(src, request, media)
+  private async resolveMediaRequest(
+    src: string,
+    track: Track
+  ): Promise<ResolvedMediaRequest> {
+    // The *resolved* request layer, not `configuration.request`: a
+    // resolver-only config would otherwise reach media with no baseUrl and no
+    // headers. Browse, search and browse artwork all read it this way too.
+    //
+    // Caught, because unlike those three this one cannot fail the load: a
+    // resolver hiccup — a token refresh timing out — would otherwise take down
+    // a track whose `src` is already absolute and public and needed no layer at
+    // all. Native degrades the same way, `getMediaRequestConfig` returning null
+    // and the original URL playing on.
+    let request: TransformableRequestConfig | undefined
+    try {
+      request = await this.browserManager.resolvedRequestConfig()
+    } catch (e) {
+      console.error('Failed to resolve the request layer for media', e)
+    }
+    const { media } = this.browserManager.configuration
+    return RequestConfigBuilder.resolveMediaRequest(src, request, media, track)
   }
 
   /**
-   * Reload from the queue's own entry, keeping the queue the source of truth.
-   * `current` preserves the track as queued — the resolved URL is passed to
-   * `load()` separately — so re-feeding it would resolve correctly too.
+   * The queue's own entry, so the queue stays the source of truth for what is
+   * playing. `current` preserves the track as queued — the resolved URL is
+   * passed to `load()` separately — so either is safe to re-feed.
    */
-  protected override reloadCurrent(): void {
+  protected override trackToReload(): Track | undefined {
     const index = this.queue.currentIndex
-    const sourceTrack =
-      index !== undefined ? this.queue.getTrack(index) : undefined
-    if (sourceTrack) {
-      this.load(sourceTrack)
-    } else {
-      super.reloadCurrent()
-    }
+    const queued = index !== undefined ? this.queue.getTrack(index) : undefined
+    // The queue entry wins, so it stays the source of truth for what is
+    // playing; `current` is the fallback for a player loaded without one.
+    return queued ?? super.trackToReload()
   }
 
-  load(track: Track, callback?: (track: Track) => void): void {
-    const element = this.requireElement()
-
-    // Clear now playing override when track changes (matches Android's PlayerListener.onMediaItemTransition)
-    this.nowPlayingManager.clearNowPlayingOverride()
-
-    // Match Android: load() modifies the queue.
-    // If queue is empty, add the track. If queue has items, replace at currentIndex.
+  /**
+   * Makes `track` the queue's current entry, emitting the change.
+   *
+   * Matches Android, where `load()` modifies the queue: an empty queue takes
+   * the track as its only entry, a populated one has its current entry
+   * replaced.
+   */
+  private syncQueueTo(track: Track): void {
     if (this.queue.length === 0) {
       this.queue.setTracks([track])
       this.queue.currentIndex = 0
       this.emitQueueChanged()
-    } else if (
+      return
+    }
+    if (
       this.queue.currentIndex !== undefined &&
       this.queue.getTrack(this.queue.currentIndex) !== track
     ) {
       this.queue.replaceTrack(this.queue.currentIndex, track)
       this.emitQueueChanged()
     }
+  }
 
+  /**
+   * Everything native does in its media-item transition, all of it before any
+   * network work: announce the new track, publish its now-playing metadata,
+   * cut the outgoing one, and report `loading`.
+   *
+   * Android's `onMediaItemTransition` fires at `prepare()` and does exactly
+   * this, with its LOADING following from `onEvents`; resolution happens later
+   * still, inside `TransformingDataSource.open()`. Doing it here rather than
+   * after the URL resolves is what gives the resolution window a state, and
+   * keeps `activeTrack` ahead of `loading` — the order a consumer that reads
+   * `getActiveTrack()` on the loading edge depends on.
+   */
+  private transitionTo(track: Track): void {
+    const element = this.requireElement()
     const lastTrack = this.current
     const lastPosition = element.currentTime
     const lastIndex = this.queue.lastIndex
     const currentIndex = this.queue.currentIndex
+
+    // A re-prepare of the item already current is not a transition, and must
+    // not be announced as one: ExoPlayer's `prepare()` does not re-fire
+    // `onMediaItemTransition` for an unchanged media item, so a consumer that
+    // resets on a track change would have its UI wiped by every retry. The
+    // `lastTrack === track` payload was the tell.
+    const isTransition = this.current !== track
+
+    // `current` first, so `getActiveTrack()` already reads the new track inside
+    // a handler and so `getNowPlaying()` publishes the new track's metadata. It
+    // also stops `getActiveTrackIndex()` — which moved with the queue already,
+    // synchronously — from disagreeing with it for the length of the
+    // resolution.
+    this.current = track
+
+    // Separately guarded: a throwing consumer handler must not skip the
+    // publish, and neither may fail the load.
+    if (isTransition) {
+      try {
+        this.onPlaybackActiveTrackChanged({
+          lastTrack,
+          lastPosition,
+          lastIndex,
+          index: currentIndex,
+          track
+        })
+      } catch (error) {
+        console.error('Failed to announce the active track change:', error)
+      }
+
+      try {
+        // Once, here: duration reaches the media session through
+        // `updateProgress()` on each tick, so only metadata needs publishing.
+        // Android publishes from the same transition handler that announces.
+        const nowPlaying = this.getNowPlaying()
+        if (nowPlaying) {
+          this.publishNowPlaying(nowPlaying)
+        }
+      } catch (error) {
+        console.error('Failed to publish now-playing metadata:', error)
+      }
+    }
+
+    // Stop the outgoing track now rather than when Shaka eventually gets a URL.
+    // Announcing the new track while the old one is still audible is worse than
+    // the silence, and native has no such window — prepare() cuts the old item
+    // at the moment it announces. This adds no teardown: `player.load()`
+    // already unloads first (shaka player.js:1757-1762). It only moves when.
+    // Verified in a real browser to emit no `pause`, so no state comes of it.
+    this.requirePlayer()
+      .unload()
+      .catch((error: unknown) =>
+        console.error('Failed to unload the previous track:', error)
+      )
+
+    // Loading covers the resolution too. Shaka dispatches its own `loading`
+    // once `player.load()` is called — after resolution — and the state setter
+    // drops that as a no-op. The `buffering` that follows is Shaka's to report.
+    this.dispatch({ type: 'trackLoading' })
+  }
+
+  load(track: Track, callback?: (track: Track) => void): void {
+    // Before the queue is touched, so a load before `setupPlayer()` throws
+    // rather than half-applying.
+    this.requireElement()
+
+    // Clear now playing override when track changes (matches Android's PlayerListener.onMediaItemTransition)
+    this.nowPlayingManager.clearNowPlayingOverride()
+
+    this.syncQueueTo(track)
+
+    // Begun here, at the call, so a newer load supersedes this one immediately
+    // rather than once its own URL has resolved. Both continuations below carry
+    // it, as does `super.load()`.
+    const attempt = this.beginLoadAttempt()
+
+    // Loading ends being stopped. `dispatch()` drops every event while
+    // `_isStopped`, to keep Shaka's teardown noise off the stopped state, so
+    // the `trackLoading` in `transitionTo` would be swallowed on the stop → play
+    // path and the resolution window would report nothing. `super.load()` clears
+    // this too, but only after the URL resolves.
+    this._isStopped = false
 
     // Set loading flag early so seekTo() calls during async URL resolution
     // are captured as pending seeks rather than silently dropped
     this._loadInProgress = true
     this._pendingSeek = undefined
 
+    this.transitionTo(track)
+
     // Resolve the media URL before loading (async but we don't await)
-    const loadId = ++this.currentLoadId
     const doLoad = async () => {
       const resolvedRequest = track.src
-        ? await this.resolveMediaRequest(track.src)
+        ? await this.resolveMediaRequest(track.src, track)
         : undefined
       // Web-only, and forced: a progressive file plays via `mediaElement.src`,
       // which cannot carry headers. Native sends them with the media request
@@ -684,14 +801,13 @@ export class NativeAudioBrowser
       const resolvedMedia = resolvedRequest
         ? await followMediaRedirect(
             resolvedRequest.path ?? track.src!,
-            resolvedRequest.headers
+            resolvedRequest.headers,
+            { mediaLayerHeaders: resolvedRequest.mediaLayerHeaders }
           )
         : undefined
 
-      // A newer load() was called while resolving — discard this stale result
-      if (loadId !== this.currentLoadId) {
-        return
-      }
+      // Something took over while the URL was resolving — discard this result
+      if (!attempt.isCurrent) return
 
       super.load(
         track,
@@ -701,34 +817,22 @@ export class NativeAudioBrowser
             callback(loadedTrack)
           }
         },
-        { headers: resolvedMedia?.headers, src: resolvedMedia?.src }
+        { headers: resolvedMedia?.headers, src: resolvedMedia?.src, attempt }
       )
-
-      // Announced on the attempt, as native does — ExoPlayer from
-      // onMediaItemTransition, iOS from the queue coordinator. On success only,
-      // a track that fails to load never becomes active, leaving a UI bound to
-      // it nothing to render and its error nowhere to appear.
-      this.onPlaybackActiveTrackChanged({
-        lastTrack,
-        lastPosition,
-        lastIndex,
-        index: currentIndex,
-        track
-      })
-
-      // Once, here: duration reaches the media session through
-      // `updateProgress()` on each tick, so only metadata needs publishing.
-      // iOS draws the same line.
-      const nowPlaying = this.getNowPlaying()
-      if (nowPlaying) {
-        this.publishNowPlaying(nowPlaying)
-      }
     }
 
     // Execute async load without blocking, with error handling
     doLoad().catch((error: unknown) => {
-      // Only the active load may surface a resolution failure.
-      if (loadId !== this.currentLoadId) return
+      // A backstop with no reachable trigger today, kept because an unhandled
+      // rejection would be worse than a dead branch. Every await inside
+      // `doLoad` catches internally; `shaka.Player.load` is `async`, so it
+      // rejects rather than throwing and its rejection is handled against the
+      // attempt inside `Player.load`; and `this.player` is only ever assigned,
+      // so `requirePlayer()` cannot start succeeding and then fail mid-load.
+      //
+      // No attempt check either, for the same reason it would be dead: nothing
+      // awaits between the guard above and `super.load()`, so the attempt
+      // cannot have changed. Add an await there and this needs the check back.
       this._loadInProgress = false
       this._pendingSeek = undefined
       console.error('Error loading track:', error)
@@ -908,10 +1012,8 @@ export class NativeAudioBrowser
   }
 
   override stop(): void {
-    // Invalidate any in-flight load: its post-await continuation would call
-    // super.load(), whose first line re-arms the player (_isStopped = false)
-    // and revives the state out of Stopped.
-    this.currentLoadId++
+    // `Player.stop()` cancels the load attempt, so an in-flight load's
+    // continuation cannot re-arm the player and revive it out of Stopped.
     super.stop()
     this.clearSleepTimerIfFading()
   }
@@ -932,18 +1034,20 @@ export class NativeAudioBrowser
   /**
    * Override to check for sleep timer when track ends
    */
-  protected onTrackEnded(): void {
+  protected onTrackEnded(): boolean {
     // Check if sleep timer is set to end on track completion
     if (this.sleepTimer.sleepWhenPlayedToEnd) {
       console.log('Sleep timer triggered on track end, pausing playback')
       this.sleepTimer.clear()
       this.pause()
       this.onSleepTimerChanged(null)
-      return
+      // Nothing is loading, so the caller must still report the end — the
+      // element has stopped and its own `pause` is swallowed as end-of-track.
+      return false
     }
 
     // Otherwise proceed with normal track end behavior
-    super.onTrackEnded()
+    return super.onTrackEnded()
   }
 
   // MARK: Queue management

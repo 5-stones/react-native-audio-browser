@@ -532,6 +532,24 @@ export class BrowserManager {
   }
 
   /**
+   * Ensures the request layer is resolved for the current generation and
+   * returns it — the resolver's result when a `requestResolver` is configured,
+   * else the static `request`.
+   *
+   * Consumers outside the browse path (media URL building, artwork) must reach
+   * the request layer through this rather than reading `configuration.request`,
+   * or a resolver-only config silently loses its baseUrl, headers and transform
+   * exactly where a credential is needed. Mirrors Android's
+   * `BrowserManager.resolvedRequestConfig()`, which carries the same warning.
+   */
+  async resolvedRequestConfig(): Promise<
+    TransformableRequestConfig | undefined
+  > {
+    await this.ensureLayersResolved()
+    return this._resolvedRequest
+  }
+
+  /**
    * Ensures the request/browse layer configs are resolved for the current
    * generation. Any present resolver is invoked once per generation and the
    * result cached; a static config (no resolver) passes through unchanged.

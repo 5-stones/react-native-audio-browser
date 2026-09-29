@@ -66,4 +66,39 @@ describe('BrowserManager layer resolver', () => {
     await expect(manager.navigatePath('/a')).resolves.not.toThrow()
     expect(calls).toBe(1)
   })
+
+  /**
+   * The media and artwork paths sit outside browse and so must reach the
+   * request layer through this accessor. Reading `configuration.request`
+   * instead hands a resolver-only config no baseUrl and no headers — on
+   * exactly the requests that carry a credential. Android's
+   * `resolvedRequestConfig()` exists for the same reason.
+   */
+  it('exposes the resolver result to consumers outside the browse path', async () => {
+    const manager = makeManager()
+    manager.configuration = {
+      path: '/',
+      requestResolver: async () => ({
+        baseUrl: 'https://api.example.com',
+        headers: { Authorization: 'Bearer token' }
+      })
+    }
+
+    expect(await manager.resolvedRequestConfig()).toEqual({
+      baseUrl: 'https://api.example.com',
+      headers: { Authorization: 'Bearer token' }
+    })
+  })
+
+  it('falls back to the static request config when no resolver is set', async () => {
+    const manager = makeManager()
+    manager.configuration = {
+      path: '/',
+      request: { baseUrl: 'https://static.example.com' }
+    }
+
+    expect(await manager.resolvedRequestConfig()).toEqual({
+      baseUrl: 'https://static.example.com'
+    })
+  })
 })
