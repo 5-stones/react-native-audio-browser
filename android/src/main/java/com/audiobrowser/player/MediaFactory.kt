@@ -44,6 +44,7 @@ class MediaFactory(
       OkHttpClient.Builder()
         .connectTimeout(8, TimeUnit.SECONDS)
         .readTimeout(8, TimeUnit.SECONDS)
+        .addNetworkInterceptor(CrossOriginHeaderStripper)
         .build()
     }
   }
@@ -114,8 +115,7 @@ class MediaFactory(
     // OkHttp rather than DefaultHttpDataSource, for how each treats a redirect.
     // DefaultHttpDataSource re-applies the request headers on every hop, handing
     // an Authorization header to whatever host the first one named. OkHttp drops
-    // it once the hop leaves the origin (host, port or scheme) while still
-    // following http<->https.
+    // that one header itself, and [CrossOriginHeaderStripper] drops the rest.
     val httpFactory =
       OkHttpDataSource.Factory(mediaHttpClient).apply {
         // Deliberately NOT setUserAgent(): it is applied last via addHeader(),
