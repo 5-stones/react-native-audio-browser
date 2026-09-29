@@ -16,7 +16,11 @@ import {
   archiveRoutes
 } from '../../example-native/src/api/archive-org'
 import { authedMediaTransform } from '../../example-native/src/api/authed'
-import { radioGardenMediaTransform } from '../../example-native/src/api/radio-garden'
+import {
+  radioGardenLibrarySection,
+  radioGardenMediaTransform,
+  radioGardenRoutes
+} from '../../example-native/src/api/radio-garden'
 import { BrowserScreen } from '../screens'
 
 const styles = StyleSheet.create({
@@ -78,6 +82,7 @@ const configuration: BrowserConfiguration = {
   routes: {
     // Shared with the native example, like the media transforms above.
     ...archiveRoutes,
+    ...radioGardenRoutes,
     '/api/**': {
       baseUrl: 'http://localhost:3003'
     },
@@ -88,73 +93,17 @@ const configuration: BrowserConfiguration = {
         children: favorites
       })
     },
-    '/library/playlists': {
-      path: '/library/playlists',
-      title: 'Radio Playlists',
-      children: [
-        {
-          title: 'Independent Sounds',
-          path: '/playlist/independent-sounds'
-        },
-        {
-          title: 'Energetic Rhythms',
-          path: '/playlist/energetic-rhythms'
-        }
-      ]
-    },
-    async '/playlist/{id}'({ routeParams }) {
-      return {
-        'independent-sounds': {
-          title: 'Independent Sounds',
-          path: '/api/playlist/independent-sounds',
-          children: [
-            {
-              title: 'Radio is a Foreign Country',
-              src: 'b35yEqjv',
-              live: true
-            },
-            { title: 'NTS 1', src: 'wT9JJD4j', live: true },
-            { title: 'Worldwide FM', src: '/rg/vfm-z7pR', live: true },
-            { title: 'Kiosk Radio', src: '/rg/rTzlLOJp', live: true },
-            { title: 'Rinse France', src: '/rg/39GkuKiS', live: true },
-            { title: 'Radio 80000', src: '/rg/MBWk5Fmi', live: true },
-            { title: 'Foundation FM', src: '/rg/QgsEUvYo', live: true },
-            { title: 'Dublin Digital Radio', src: '/rg/Bv4OzWTA', live: true },
-            { title: 'LYL Radio', src: '/rg/LINZ0-LZ', live: true }
-          ]
-        },
-        'energetic-rhythms': {
-          title: 'Energetic Rhythms',
-          path: '/playlist/energetic-rhythms',
-          children: [
-            { title: 'Noods Radio', src: '/rg/TdAjNy_3', live: true },
-            { title: 'Systrum Sistum - SSR2', src: '/rg/ftR_mtxU', live: true },
-            { title: 'Radio.D59B', src: '/rg/GSLfbwH8', live: true },
-            { title: 'Dublab DE', src: '/rg/IbYQwskl', live: true },
-            { title: 'Operator Radio', src: '/rg/8Ls6E7wH', live: true },
-            { title: 'datafruits', src: '/rg/nED7EFV4', live: true }
-          ]
-        }
-      }[routeParams!.id!]!
-    },
     '/library': {
       path: '/library',
       title: 'Library',
       sections: [
-        {
-          children: [
-            {
-              path: '/library/playlists',
-              title: 'Radio Playlists'
-            }
-          ]
-        },
-        // Was a set of demo files on rntp.dev, which now 307 to www.rntp.dev
-        // and 404 there. Public-domain audio on the Internet Archive instead —
-        // the same source the native example browses and the same one the
-        // `/api/authed` routes redirect to, so it cannot rot independently of
-        // the rest of the app.
+        // Same sections, same order as the native example, from the same
+        // shared modules — so the two apps cannot drift. The rntp.dev demo
+        // files these replaced now 307 to www.rntp.dev and 404 there;
+        // Archive.org is also what the `/api/authed` routes redirect to, so it
+        // cannot rot independently of the rest of the app.
         archiveLibrarySection,
+        radioGardenLibrarySection,
         // Local HLS fixture. Next serves `public/whip/` at `/whip/`, so the
         // manifest and all 17 segments are served by this app rather than a
         // third-party host — HLS manifest parsing, segment loading and seeking
