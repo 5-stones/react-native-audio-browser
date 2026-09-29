@@ -11,6 +11,10 @@ import AudioBrowser, {
   type BrowserConfiguration
 } from 'react-native-audio-browser'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
+import {
+  archiveLibrarySection,
+  archiveRoutes
+} from '../../example-native/src/api/archive-org'
 import { authedMediaTransform } from '../../example-native/src/api/authed'
 import { radioGardenMediaTransform } from '../../example-native/src/api/radio-garden'
 import { BrowserScreen } from '../screens'
@@ -72,6 +76,8 @@ const configuration: BrowserConfiguration = {
     }
   },
   routes: {
+    // Shared with the native example, like the media transforms above.
+    ...archiveRoutes,
     '/api/**': {
       baseUrl: 'http://localhost:3003'
     },
@@ -143,41 +149,34 @@ const configuration: BrowserConfiguration = {
             }
           ]
         },
+        // Was a set of demo files on rntp.dev, which now 307 to www.rntp.dev
+        // and 404 there. Public-domain audio on the Internet Archive instead —
+        // the same source the native example browses and the same one the
+        // `/api/authed` routes redirect to, so it cannot rot independently of
+        // the rest of the app.
+        archiveLibrarySection,
+        // Local HLS fixture. Next serves `public/whip/` at `/whip/`, so the
+        // manifest and all 17 segments are served by this app rather than a
+        // third-party host — HLS manifest parsing, segment loading and seeking
+        // stay testable offline, and can't rot when a remote URL moves.
+        //
+        // The manifest references its segments by relative name, so it needs no
+        // rewriting. Neither media transform claims `/whip/`, so the src reaches
+        // the player untouched.
         {
-          title: 'David Chavez',
+          title: 'HLS',
           children: [
             {
-              src: 'https://rntp.dev/example/Soul%20Searching.mp3',
-              title: 'Soul Searching (Demo)',
-              artist: 'David Chavez',
-              artwork: 'https://rntp.dev/example/Soul%20Searching.jpeg',
-              duration: 77
-            },
-            {
-              src: 'https://rntp.dev/example/Lullaby%20(Demo).mp3',
-              title: 'Lullaby (Demo)',
-              artist: 'David Chavez',
-              artwork: 'https://rntp.dev/example/Lullaby%20(Demo).jpeg',
-              duration: 71
-            },
-            {
-              src: 'https://rntp.dev/example/Rhythm%20City%20(Demo).mp3',
-              title: 'Rhythm City (Demo)',
-              artist: 'David Chavez',
-              artwork: 'https://rntp.dev/example/Rhythm%20City%20(Demo).jpeg',
-              duration: 106
+              id: 'whip-hls',
+              title: 'Whip',
+              src: '/whip/playlist.m3u8',
+              artwork: '/whip/whip.jpeg'
             }
           ]
         },
         {
           title: 'Other',
           children: [
-            {
-              src: 'https://rntp.dev/example/hls/whip/playlist.m3u8',
-              title: 'Whip (m3u8 HLS Stream)',
-              artist: 'prazkhanal',
-              artwork: 'https://rntp.dev/example/hls/whip/whip.jpeg'
-            },
             {
               src: 'https://traffic.libsyn.com/atpfm/atp545.mp3',
               title: 'Chapters'
