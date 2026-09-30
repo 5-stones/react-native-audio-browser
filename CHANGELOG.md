@@ -1,3 +1,11 @@
+## [0.2.0-next.20](https://github.com/radio-garden/react-native-audio-browser/compare/v0.2.0-next.19...v0.2.0-next.20) (2026-09-30)
+
+### Bug Fixes
+
+* **web:** forget the resume position on a fresh load ([53da820](https://github.com/radio-garden/react-native-audio-browser/commit/53da820fdc562141924c91d5ba489dfcf24bce4d))
+* **web:** keep the play intent when play() is refused mid-load ([31cf9e1](https://github.com/radio-garden/react-native-audio-browser/commit/31cf9e1fadad77d86863d9eaee680bfe8aa28caa))
+* **web:** resolve search-result artwork with the resolved request layer ([f51073c](https://github.com/radio-garden/react-native-audio-browser/commit/f51073cc918b9ef94b6700d0cb0d521bd4746950))
+
 ## [0.2.0-next.19](https://github.com/radio-garden/react-native-audio-browser/compare/v0.2.0-next.18...v0.2.0-next.19) (2026-09-30)
 
 ### Bug Fixes
