@@ -145,6 +145,32 @@ describe('the remembered resume position', () => {
 
     expect(h.currentTime).toBe(0)
   })
+
+  /**
+   * A stop remembers the position for `play()` to resume from. A fresh
+   * `load()` of the same track afterwards starts from the top, as ExoPlayer's
+   * does for a re-set media item — so if that load fails, its retry must not
+   * dig up the position the stop left behind.
+   */
+  it('is forgotten by a fresh load of the same track', async () => {
+    h.browser.load(trackA)
+    await h.flush()
+    await h.completeLoad()
+    h.setPosition(42)
+    h.browser.stop()
+    await h.flush()
+
+    h.failLoad()
+    h.browser.load(trackA)
+    await h.flush()
+
+    h.succeedLoads()
+    h.browser.retry()
+    await h.flush()
+    await h.completeLoad()
+
+    expect(h.currentTime).toBe(0)
+  })
 })
 
 describe('re-preparing the current item', () => {

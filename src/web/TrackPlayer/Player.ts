@@ -41,6 +41,12 @@ export interface LoadOptions {
    * outermost call and starts its own, so two of them supersede each other.
    */
   attempt?: LoadAttempt
+  /**
+   * Whether this load is a re-prepare of the current item, when a subclass
+   * captured {@link Player._repreparing} before an async stage and calls
+   * `super.load()` after it, once the flag has been reset.
+   */
+  reprepare?: boolean
   /** Headers resolved from the media configuration, applied to Shaka's requests. */
   headers?: Record<string, string>
   /**
@@ -360,6 +366,9 @@ export class Player {
     // error has somewhere to show. `getActiveTrackIndex()` already reported the
     // queue's index either way; this makes the pair agree.
     this.current = track
+    // Only a re-prepare carries the remembered position, and `reprepare()`
+    // has already read it by now.
+    if (!(options?.reprepare ?? this._repreparing)) this._resume = undefined
     // The attempt a subclass began before resolving the URL, so its resolution
     // stage and both continuations below share one token. Passed rather than
     // read off the instance: a direct `load()` is itself the outermost call and
@@ -439,9 +448,18 @@ export class Player {
    *
    * Kept against the track it belongs to rather than as a bare number, so it
    * self-invalidates when a different track becomes current and cannot be
-   * applied to the wrong one.
+   * applied to the wrong one. A fresh `load()` clears it; a re-prepare keeps
+   * it, so a retry that fails still knows where the next one resumes.
    */
   private _resume: { track: Track; position: number } | undefined
+
+  /**
+   * Whether the load in progress is a re-prepare of the current item rather
+   * than a new one — set by {@link reloadCurrent} for the duration of its
+   * `load()` call. A re-prepare keeps the remembered position; every other
+   * load resets it.
+   */
+  protected _repreparing = false
 
   /**
    * Records the current position, when there is one worth recording.
@@ -538,12 +556,17 @@ export class Player {
   protected reloadCurrent(resumePosition?: number): void {
     const track = this.trackToReload()
     if (!track) return
-    this.load(
-      track,
-      resumePosition === undefined
-        ? undefined
-        : () => this.seekTo(resumePosition)
-    )
+    this._repreparing = true
+    try {
+      this.load(
+        track,
+        resumePosition === undefined
+          ? undefined
+          : () => this.seekTo(resumePosition)
+      )
+    } finally {
+      this._repreparing = false
+    }
   }
 
   /**

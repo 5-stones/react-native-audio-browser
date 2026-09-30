@@ -718,6 +718,10 @@ export class NativeAudioBrowser
     // Separately guarded: a throwing consumer handler must not skip the
     // publish, and neither may fail the load.
     if (isTransition) {
+      // As Android's onMediaItemTransition does: a new item is a clean slate,
+      // a retry of the same one keeps what the consumer set.
+      this.nowPlayingManager.clearNowPlayingOverride()
+
       try {
         this.onPlaybackActiveTrackChanged({
           lastTrack,
@@ -766,15 +770,15 @@ export class NativeAudioBrowser
     // rather than half-applying.
     this.requireElement()
 
-    // Clear now playing override when track changes (matches Android's PlayerListener.onMediaItemTransition)
-    this.nowPlayingManager.clearNowPlayingOverride()
-
     this.syncQueueTo(track)
 
     // Begun here, at the call, so a newer load supersedes this one immediately
     // rather than once its own URL has resolved. Both continuations below carry
     // it, as does `super.load()`.
     const attempt = this.beginLoadAttempt()
+    // Read now: `reloadCurrent` holds the flag only for this synchronous call,
+    // and `super.load()` runs after the URL has resolved.
+    const reprepare = this._repreparing
 
     // Loading ends being stopped. `dispatch()` drops every event while
     // `_isStopped`, to keep Shaka's teardown noise off the stopped state, so
@@ -817,7 +821,12 @@ export class NativeAudioBrowser
             callback(loadedTrack)
           }
         },
-        { headers: resolvedMedia?.headers, src: resolvedMedia?.src, attempt }
+        {
+          headers: resolvedMedia?.headers,
+          src: resolvedMedia?.src,
+          attempt,
+          reprepare
+        }
       )
     }
 
