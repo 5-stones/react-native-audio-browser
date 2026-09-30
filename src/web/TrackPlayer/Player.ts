@@ -522,10 +522,15 @@ export class Player {
    * a play intent, so there is no parity target here.
    *
    * `AbortError` means a newer load interrupted this one — that load owns the
-   * state and the intent stands. Anything else, autoplay policy above all, is
-   * the browser refusing: the intent cannot be honoured, so it is cleared and
-   * the state settles rather than stranding on `loading`/`buffering`, which is
-   * where suppressing `ready` under `playWhenReady` would otherwise leave it.
+   * state and the intent stands. So does a rejection while a load is still in
+   * flight: `load()` then `play()` is the library's own sequence, and until
+   * Shaka has a source the element may refuse (Firefox rejects a source-less
+   * element with `NotSupportedError`; Chrome leaves it pending). The load
+   * calls `play()` again on success, and a real refusal repeats there.
+   * Anything else, autoplay policy above all, is the browser refusing: the
+   * intent cannot be honoured, so it is cleared and the state settles rather
+   * than stranding on `loading`/`buffering`, which is where suppressing
+   * `ready` under `playWhenReady` would otherwise leave it.
    */
   private onPlayRejected(err: unknown): void {
     console.error(err)
@@ -533,7 +538,7 @@ export class Player {
       typeof err === 'object' && err !== null && 'name' in err
         ? (err as { name?: unknown }).name
         : undefined
-    if (name === 'AbortError') return
+    if (name === 'AbortError' || this._loadInProgress) return
 
     this.playWhenReady = false
     this.dispatch({ type: 'paused', hasAsset: this.current !== undefined })

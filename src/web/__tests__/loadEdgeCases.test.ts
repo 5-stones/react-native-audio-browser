@@ -173,6 +173,31 @@ describe('the remembered resume position', () => {
   })
 })
 
+describe('a rejected play() while a load is in flight', () => {
+  /**
+   * `load()` then `play()` is the library's own sequence (`playSingleTrack`,
+   * `skip`), and until Shaka has a source the element may refuse the play —
+   * Firefox rejects a source-less element with `NotSupportedError`. That is
+   * not the browser refusing the intent: the load calls `play()` itself on
+   * success, so the intent has to survive until then.
+   */
+  it('keeps the intent for the load to honour', async () => {
+    const element = (h.browser as unknown as { element: HTMLMediaElement })
+      .element
+    const refuse = Object.assign(new Error('no source'), {
+      name: 'NotSupportedError'
+    })
+    element.play = () => Promise.reject(refuse)
+
+    h.browser.load(trackA)
+    h.browser.play()
+    await h.flush()
+
+    expect(h.browser.getPlayWhenReady()).toBe(true)
+    expect(h.recorded).not.toContain('playWhenReady:false')
+  })
+})
+
 describe('re-preparing the current item', () => {
   /**
    * ExoPlayer's `prepare()` does not re-fire `onMediaItemTransition` for an
