@@ -1,3 +1,19 @@
+## [0.2.0-next.19](https://github.com/radio-garden/react-native-audio-browser/compare/v0.2.0-next.18...v0.2.0-next.19) (2026-09-30)
+
+### Bug Fixes
+
+* **android:** drop every caller header on a cross-origin redirect ([33f568e](https://github.com/radio-garden/react-native-audio-browser/commit/33f568eda7436cbf997b2737b6a1481e062b800f))
+* **android:** stop re-sending media headers across a redirect ([3318f0f](https://github.com/radio-garden/react-native-audio-browser/commit/3318f0feaf3b4074c67d59673ebb924480ddd221))
+* **web:** apply a media config's headers to media requests ([5aef269](https://github.com/radio-garden/react-native-audio-browser/commit/5aef2699fc53bf360efd381d2fa652c34e205523))
+* **web:** resolve artworkSource without an artwork config, as Android does ([af365b8](https://github.com/radio-garden/react-native-audio-browser/commit/af365b8afe6bc1b32cb0dd5e2f6b97eec4517334))
+* **web:** resolve media requests and report playback like native ([28bb18b](https://github.com/radio-garden/react-native-audio-browser/commit/28bb18b9034bb7f0120a55b63f1d2d69e615c525))
+
+### Other changes
+
+* **apps:** add authenticated-stream examples and a redirect probe ([117b35f](https://github.com/radio-garden/react-native-audio-browser/commit/117b35fb73d3296effc625cefc7d99c035dcfa12))
+* **example-nextjs:** match the native example's browse rendering ([1e201b8](https://github.com/radio-garden/react-native-audio-browser/commit/1e201b82cf8c46f706adce01192460693502d2ac))
+* **example-nextjs:** replace dead demo tracks with real sources ([71fb546](https://github.com/radio-garden/react-native-audio-browser/commit/71fb54669f7dbbcaf21cbfedf4a37799e2dc298d))
+
 ## [0.2.0-next.18](https://github.com/radio-garden/react-native-audio-browser/compare/v0.2.0-next.17...v0.2.0-next.18) (2026-09-22)
 
 ### Features
