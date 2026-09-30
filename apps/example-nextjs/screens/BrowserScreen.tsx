@@ -11,6 +11,7 @@ import {
 import {
   hasSearch,
   navigate,
+  type Section,
   type Track,
   useActiveTrack,
   useContent,
@@ -23,17 +24,19 @@ import { DebugPanel } from '../components/DebugPanel'
 import { MiniPlayer } from '../components/MiniPlayer'
 import { NavigationErrorView } from '../components/NavigationErrorView'
 import { SleepTimerModal } from '../components/SleepTimerModal'
-import { TrackListItem } from '../components/TrackListItem'
+import { SectionTileRow, TrackListItem } from '../components/TrackListItem'
 import { useBrowserHistory } from '../hooks/useBrowserHistory'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { SearchScreen } from './SearchScreen'
 
 type Screen = 'browser' | 'search'
 
-// Flatten sections into FlatList rows: a titled section renders a header
-// followed by its tracks; an untitled one renders its tracks bare.
+// Flatten sections into FlatList rows: a tile section renders as one
+// horizontal-scroller row; a titled list section renders a header followed
+// by its tracks; an untitled one renders its tracks bare.
 type BrowseRow =
   | { kind: 'header'; title: string; key: string }
+  | { kind: 'tiles'; section: Section; key: string }
   | { kind: 'track'; track: Track; key: string }
 
 export function BrowserScreen() {
@@ -84,6 +87,11 @@ export function BrowserScreen() {
   const rows: BrowseRow[] = useMemo(
     () =>
       (content?.sections ?? []).flatMap((section, si): BrowseRow[] => {
+        // The page block declares for its whole scope; a section overrides
+        // it for its own children, as the native example resolves it.
+        if ((section.style?.display ?? content?.style?.display) === 'grid') {
+          return [{ kind: 'tiles', section, key: `tiles-${si}` }]
+        }
         const trackRows: BrowseRow[] = section.children.map((track, i) => ({
           kind: 'track',
           track,
@@ -99,16 +107,24 @@ export function BrowserScreen() {
     [content]
   )
 
-  const renderItem = ({ item }: { item: BrowseRow }) =>
-    item.kind === 'header' ? (
-      <Text style={styles.sectionHeader}>{item.title}</Text>
-    ) : (
-      <TrackListItem
-        track={item.track}
-        isActive={item.track.src != null && activeTrack?.src === item.track.src}
-        onPress={() => navigate(item.track)}
-      />
-    )
+  const renderItem = ({ item }: { item: BrowseRow }) => {
+    switch (item.kind) {
+      case 'header':
+        return <Text style={styles.sectionHeader}>{item.title}</Text>
+      case 'tiles':
+        return <SectionTileRow section={item.section} />
+      case 'track':
+        return (
+          <TrackListItem
+            track={item.track}
+            isActive={
+              item.track.src != null && activeTrack?.src === item.track.src
+            }
+            onPress={() => navigate(item.track)}
+          />
+        )
+    }
+  }
 
   return (
     <View style={styles.container}>

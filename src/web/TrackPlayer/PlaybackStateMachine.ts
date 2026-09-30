@@ -15,6 +15,12 @@ import type { PlaybackState } from '../../features'
  * | `paused`             | element `pause`                 |
  * | `trackEndedNaturally`| element `ended`                 |
  *
+ * `trackLoading` is left to Shaka rather than also dispatched when `load()` is
+ * called. Dispatching it up front would give the URL-resolution window a state
+ * to report, but it would put `loading` ahead of
+ * `onPlaybackActiveTrackChanged`, and native emits those the other way round —
+ * see the note in `NativeAudioBrowser.load`.
+ *
  * Deliberate *commands* (stop, error) set their terminal state directly rather
  * than flowing through here — they are intentions, not observations. The two
  * iOS-only events `trackUnloaded` and `audioFrameDecoded` are omitted: web has
@@ -24,11 +30,11 @@ import type { PlaybackState } from '../../features'
 export type PlaybackEvent =
   | { type: 'trackLoading' }
   | { type: 'trackEndedNaturally' }
-  | { type: 'loadSeekCompleted' }
+  | { type: 'loadSeekCompleted'; playWhenReady: boolean }
   | { type: 'paused'; hasAsset: boolean }
   | { type: 'waiting' }
   | { type: 'playing' }
-  | { type: 'bufferingSufficient' }
+  | { type: 'bufferingSufficient'; playWhenReady: boolean }
 
 /**
  * The next playback state for an event from the current state, or `null` to
@@ -56,7 +62,12 @@ export function nextPlaybackState(
       return 'playing'
     case 'loadSeekCompleted':
       // The settle after a load; meaningless from anything but a fresh load.
-      return current === 'loading' ? 'ready' : null
+      // `buffering` counts as one: a load now always passes through it.
+      if (current !== 'loading' && current !== 'buffering') return null
+      // Suppressed while the intent is to play, as Android suppresses
+      // STATE_READY there — it is a transient before `playing`, and emitting it
+      // flashes a settled, non-loading state mid-startup.
+      return event.playWhenReady ? null : 'ready'
     case 'paused':
       // A stopped player owns its state; a stray pause must not disturb it.
       if (current === 'stopped') return null
@@ -72,11 +83,16 @@ export function nextPlaybackState(
       // it would silently clear the error the UI is rendering (Shaka's
       // post-error unload emits buffering events without the stopped dispatch
       // gate); ended/stopped own their state until an explicit load or play.
-      return current === 'playing' ||
+      if (
+        current === 'playing' ||
         current === 'ended' ||
         current === 'stopped' ||
         current === 'error'
-        ? null
-        : 'ready'
+      ) {
+        return null
+      }
+      // Same suppression as `loadSeekCompleted`: while the intent is to play,
+      // `playing` is the next state worth reporting.
+      return event.playWhenReady ? null : 'ready'
   }
 }

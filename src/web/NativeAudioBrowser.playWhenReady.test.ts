@@ -156,9 +156,14 @@ describe('NativeAudioBrowser stop vs in-flight load', () => {
     await new Promise((resolve) => setTimeout(resolve, 0))
 
     // The stale load must not revive the player: previously its continuation
-    // re-armed _isStopped = false and set the current track after stop().
-    expect(browser.current).toBeUndefined()
+    // re-armed _isStopped = false and re-entered super.load() after stop().
     expect(browser.getPlayback().state).toBe('stopped')
+    // `current` is the track, not undefined: the transition is announced when
+    // load() is called, before the URL resolves, so by the time stop() runs the
+    // track is already active — and `Player.stop()` deliberately keeps it so
+    // play() can resume. Android behaves the same way; it was only undefined
+    // here because the async gap meant it had never been set.
+    expect(browser.current?.id).toBe(track.id)
   })
 })
 
@@ -297,5 +302,230 @@ describe('NativeAudioBrowser setQueue start position', () => {
     browser.setQueue([track], 0, 30)
 
     expect(skips).toEqual([[0, 30]])
+  })
+})
+
+/**
+ * Android emits the active-track transition from ExoPlayer's
+ * `onMediaItemTransition`, which fires when the media item is set — before the
+ * load has resolved, and regardless of whether it ever does. iOS drives it from
+ * the queue coordinator, which behaves the same. Web announcing it only on
+ * success meant a track that failed to load never became the active track for
+ * consumers, so a UI bound to `useActiveTrack()` had nothing to render and a
+ * playback error had nowhere to appear.
+ */
+describe('NativeAudioBrowser active track announced on the load attempt', () => {
+  class FailingLoadBrowser extends TestBrowser {
+    constructor(loadResult: () => Promise<void>) {
+      super()
+      this.player = {
+        load: loadResult,
+        unload: () => Promise.resolve()
+      } as unknown as typeof this.player
+    }
+
+    /** getNowPlaying() reads progress off the element, which needs buffered ranges. */
+    withProgressCapableElement(): this {
+      this.element = {
+        play: () => Promise.resolve(),
+        pause: () => {},
+        currentTime: 0,
+        duration: 100,
+        buffered: { length: 0, end: () => 0 }
+      } as unknown as HTMLMediaElement
+      return this
+    }
+  }
+
+  const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+  it('announces the transition even when the load fails', async () => {
+    const browser = new FailingLoadBrowser(() =>
+      Promise.reject(new Error('401'))
+    )
+    const announced: (Track | undefined)[] = []
+    browser.onPlaybackActiveTrackChanged = (event) =>
+      announced.push(event.track)
+
+    browser.load(track)
+    await tick()
+
+    expect(announced.map((t) => t?.src)).toContain(track.src)
+    expect(browser.getActiveTrack()?.src).toBe(track.src)
+  })
+
+  it('announces the transition exactly once on a successful load', async () => {
+    const browser = new FailingLoadBrowser(() => Promise.resolve())
+    const announced: (Track | undefined)[] = []
+    browser.onPlaybackActiveTrackChanged = (event) =>
+      announced.push(event.track)
+
+    browser.load(track)
+    await tick()
+
+    expect(announced).toHaveLength(1)
+    expect(announced[0]?.src).toBe(track.src)
+  })
+
+  it('does not report a load failure when the announcement throws', async () => {
+    // The announcement runs after the load has committed, so a consumer's own
+    // throwing handler must not travel back up and error a load that worked.
+    const browser = new FailingLoadBrowser(() => Promise.resolve())
+    browser.onPlaybackActiveTrackChanged = () => {
+      throw new Error('consumer handler blew up')
+    }
+    const errors: (string | undefined)[] = []
+    browser.onPlaybackError = (event) => errors.push(event.error?.code)
+
+    browser.load(track)
+    await tick()
+
+    expect(errors).not.toContain('load-error')
+    expect(browser.getPlayback().state).not.toBe('error')
+  })
+
+  it('announces the transition before the error for a track with no src', async () => {
+    // super.load() sets the error state synchronously when there is nothing to
+    // play, so announcing after it put onPlaybackError first — and a consumer
+    // that clears its banner on a track change wiped the error. Native cannot
+    // invert these: Android fires onMediaItemTransition at prepare, onPlayerError
+    // only after.
+    const browser = new FailingLoadBrowser(() => Promise.resolve())
+    const order: string[] = []
+    browser.onPlaybackActiveTrackChanged = () => order.push('track-changed')
+    browser.onPlaybackError = (event) => {
+      if (event.error) order.push('error')
+    }
+
+    browser.load({ id: 'no-src', title: 'No src' })
+    await tick()
+
+    expect(order).toEqual(['track-changed', 'error'])
+  })
+
+  it('does not report loading before the active track change', async () => {
+    // Native emits these in the opposite order — Android's active-track
+    // callback comes from onMediaItemTransition, its LOADING from onEvents,
+    // which ExoPlayer runs after the individual callbacks. Dispatching
+    // `trackLoading` when load() is called inverted that, handing a consumer
+    // that reads getActiveTrack() on the loading edge the outgoing track.
+    const browser = new FailingLoadBrowser(() => Promise.resolve())
+    const order: string[] = []
+    browser.onPlaybackChanged = (playback) => {
+      if (playback.state === 'loading') order.push('loading')
+    }
+    browser.onPlaybackActiveTrackChanged = () => order.push('active-track')
+
+    browser.load(track)
+    // both land synchronously, in native's order: the transition is announced
+    // when the caller asks for it, and `loading` covers the resolution that
+    // follows
+    expect(order).toEqual(['active-track', 'loading'])
+
+    await tick()
+    expect(order.indexOf('active-track')).toBeLessThan(order.indexOf('loading'))
+  })
+
+  it('still publishes now-playing when the announcement throws', async () => {
+    // The two are independent: a consumer's throwing handler must not leave the
+    // lock screen showing the previous track.
+    const browser = new FailingLoadBrowser(() =>
+      Promise.resolve()
+    ).withProgressCapableElement()
+    browser.onPlaybackActiveTrackChanged = () => {
+      throw new Error('consumer handler blew up')
+    }
+    const published: (string | undefined)[] = []
+    browser.onNowPlayingChanged = (metadata) => published.push(metadata.title)
+
+    browser.load(track)
+    await tick()
+
+    expect(published).toContain(track.title)
+  })
+})
+
+/**
+ * The media path reads the *resolved* request layer, so unlike browse it can be
+ * handed a rejected resolver. A track whose `src` is already absolute needs no
+ * layer at all, and native degrades rather than failing — `getMediaRequestConfig`
+ * returns null and the original URL plays on.
+ */
+describe('NativeAudioBrowser media load vs a failing request resolver', () => {
+  const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+  it('still plays an absolute src when the request resolver rejects', async () => {
+    const browser = new TestBrowser()
+    browser.configuration = {
+      requestResolver: () => Promise.reject(new Error('token refresh failed'))
+    }
+    const errors: (string | undefined)[] = []
+    browser.onPlaybackError = (event) => errors.push(event.error?.code)
+
+    browser.load(track)
+    await tick()
+
+    expect(errors).not.toContain('load-error')
+    expect(browser.getActiveTrack()?.src).toBe(track.src)
+  })
+})
+
+/**
+ * Both native platforms clear the playback error when the state leaves `error`,
+ * and say so: Android emits `onPlaybackError(null)` when leaving ERROR, iOS
+ * clears `playbackError` before emitting the state change. Web derived the
+ * cleared value correctly from state but never emitted it, so a consumer
+ * subscribed to the event kept showing a stale error after the next track
+ * loaded fine.
+ */
+describe('NativeAudioBrowser playback error lifecycle', () => {
+  class ErrorStateBrowser extends TestBrowser {
+    setErrorState(code: string): void {
+      this.state = {
+        state: 'error',
+        error: { kind: 'unknown', code, message: code }
+      }
+    }
+
+    setPlainState(state: PlaybackState): void {
+      this.state = { state }
+    }
+  }
+
+  const collect = () => {
+    const browser = new ErrorStateBrowser()
+    const events: (string | undefined)[] = []
+    browser.onPlaybackError = (event) => events.push(event.error?.code)
+    return { browser, events }
+  }
+
+  it('emits the error, then emits the clear when leaving the error state', () => {
+    const { browser, events } = collect()
+
+    browser.setErrorState('shaka-1001')
+    expect(events).toEqual(['shaka-1001'])
+    expect(browser.getPlaybackError()?.code).toBe('shaka-1001')
+
+    browser.setPlainState('loading')
+    expect(events).toEqual(['shaka-1001', undefined])
+    expect(browser.getPlaybackError()).toBeUndefined()
+  })
+
+  it('does not emit a clear when no error preceded the transition', () => {
+    const { browser, events } = collect()
+
+    browser.setPlainState('loading')
+    browser.setPlainState('playing')
+
+    expect(events).toEqual([])
+  })
+
+  it('emits the new error when one error replaces another', () => {
+    const { browser, events } = collect()
+
+    browser.setErrorState('shaka-1001')
+    browser.setErrorState('shaka-3016')
+
+    expect(events).toEqual(['shaka-1001', 'shaka-3016'])
   })
 })

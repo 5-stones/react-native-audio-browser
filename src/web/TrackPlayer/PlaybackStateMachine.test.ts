@@ -47,17 +47,49 @@ describe('nextPlaybackState', () => {
     })
   })
 
-  describe('loadSeekCompleted — only transitions from loading', () => {
+  describe('loadSeekCompleted — the settle after a load', () => {
     it('from loading → ready', () => {
-      expect(nextPlaybackState('loading', { type: 'loadSeekCompleted' })).toBe(
-        'ready'
-      )
+      expect(
+        nextPlaybackState('loading', {
+          type: 'loadSeekCompleted',
+          playWhenReady: false
+        })
+      ).toBe('ready')
+    })
+
+    it('from buffering → ready', () => {
+      // every load now passes through buffering, so that is where the settle
+      // usually arrives
+      expect(
+        nextPlaybackState('buffering', {
+          type: 'loadSeekCompleted',
+          playWhenReady: false
+        })
+      ).toBe('ready')
     })
 
     it('from any other state → suppressed', () => {
-      for (const state of ALL_STATES.filter((s) => s !== 'loading')) {
+      for (const state of ALL_STATES.filter(
+        (s) => s !== 'loading' && s !== 'buffering'
+      )) {
         expect(
-          nextPlaybackState(state, { type: 'loadSeekCompleted' })
+          nextPlaybackState(state, {
+            type: 'loadSeekCompleted',
+            playWhenReady: false
+          })
+        ).toBeNull()
+      }
+    })
+
+    it('suppressed while playWhenReady — ready is a transient before playing', () => {
+      // Android suppresses STATE_READY the same way; emitting it flashes a
+      // settled, non-loading state mid-startup
+      for (const state of ['loading', 'buffering'] as const) {
+        expect(
+          nextPlaybackState(state, {
+            type: 'loadSeekCompleted',
+            playWhenReady: true
+          })
         ).toBeNull()
       }
     })
@@ -103,7 +135,10 @@ describe('nextPlaybackState', () => {
 
     it('from playing → suppressed', () => {
       expect(
-        nextPlaybackState('playing', { type: 'bufferingSufficient' })
+        nextPlaybackState('playing', {
+          type: 'bufferingSufficient',
+          playWhenReady: false
+        })
       ).toBeNull()
     })
 
@@ -112,27 +147,39 @@ describe('nextPlaybackState', () => {
     // the UI is rendering with nothing recovered. Same guard as iOS/Android.
     it('from error → suppressed (preserves the error)', () => {
       expect(
-        nextPlaybackState('error', { type: 'bufferingSufficient' })
+        nextPlaybackState('error', {
+          type: 'bufferingSufficient',
+          playWhenReady: false
+        })
       ).toBeNull()
     })
 
     it('from ended → suppressed', () => {
       expect(
-        nextPlaybackState('ended', { type: 'bufferingSufficient' })
+        nextPlaybackState('ended', {
+          type: 'bufferingSufficient',
+          playWhenReady: false
+        })
       ).toBeNull()
     })
 
     it('from stopped → suppressed', () => {
       expect(
-        nextPlaybackState('stopped', { type: 'bufferingSufficient' })
+        nextPlaybackState('stopped', {
+          type: 'bufferingSufficient',
+          playWhenReady: false
+        })
       ).toBeNull()
     })
 
     it('from any other state → ready', () => {
       for (const state of ALL_STATES.filter((s) => !suppressed.includes(s))) {
-        expect(nextPlaybackState(state, { type: 'bufferingSufficient' })).toBe(
-          'ready'
-        )
+        expect(
+          nextPlaybackState(state, {
+            type: 'bufferingSufficient',
+            playWhenReady: false
+          })
+        ).toBe('ready')
       }
     })
   })

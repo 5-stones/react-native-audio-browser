@@ -403,10 +403,13 @@ export class BrowserManager {
   private async transformArtworkForContent(
     content: ResolvedTrack
   ): Promise<ResolvedTrack> {
+    // No short-circuit on a missing artwork config: Android gates per *track*
+    // (`artworkConfig == null && track.artwork == null`), so a track carrying a
+    // plain `artwork` URL still gets an `artworkSource`. Returning early here
+    // meant an app with no `artwork` block never populated the field at all —
+    // `resolveArtworkSourceAsync` already handles the no-config case the way
+    // `resolveArtworkUrl` does on Android.
     const artworkConfig = this._configuration.artwork
-    if (!artworkConfig) {
-      return content
-    }
     // The shared request layer applies to artwork too — use the resolved layer
     // (resolver result or static config) so a resolver-only config still works.
     await this.ensureLayersResolved()
@@ -524,6 +527,24 @@ export class BrowserManager {
     }
 
     return undefined
+  }
+
+  /**
+   * Ensures the request layer is resolved for the current generation and
+   * returns it — the resolver's result when a `requestResolver` is configured,
+   * else the static `request`.
+   *
+   * Consumers outside the browse path (media URL building, artwork) must reach
+   * the request layer through this rather than reading `configuration.request`,
+   * or a resolver-only config silently loses its baseUrl, headers and transform
+   * exactly where a credential is needed. Mirrors Android's
+   * `BrowserManager.resolvedRequestConfig()`, which carries the same warning.
+   */
+  async resolvedRequestConfig(): Promise<
+    TransformableRequestConfig | undefined
+  > {
+    await this.ensureLayersResolved()
+    return this._resolvedRequest
   }
 
   /**
@@ -723,8 +744,9 @@ export class BrowserManager {
 
     // Transform artwork URLs on tabs via the async resolver so the shared
     // request layer (incl. its transform) applies, matching content/search.
+    // Gated per track inside the resolver, as on Android — see
+    // `transformArtworkForContent`.
     const artworkConfig = this._configuration.artwork
-    if (!artworkConfig) return tabs
     // Resolved request layer (resolver or static), matching content/search.
     await this.ensureLayersResolved()
     const requestConfig = this._resolvedRequest

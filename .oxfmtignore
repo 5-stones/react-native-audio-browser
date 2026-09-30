@@ -4,3 +4,7 @@ CHANGELOG.md
 
 # Rewritten by yarn itself.
 .yarnrc.yml
+
+# HLS segments. MPEG-TS uses the `.ts` extension, which the formatter reads as
+# TypeScript and then fails on as binary — enough to fail `yarn ci:format`.
+apps/example-nextjs/public/whip/

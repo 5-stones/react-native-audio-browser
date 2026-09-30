@@ -11,6 +11,16 @@ import AudioBrowser, {
   type BrowserConfiguration
 } from 'react-native-audio-browser'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
+import {
+  archiveLibrarySection,
+  archiveRoutes
+} from '../../example-native/src/api/archive-org'
+import { authedMediaTransform } from '../../example-native/src/api/authed'
+import {
+  radioGardenLibrarySection,
+  radioGardenMediaTransform,
+  radioGardenRoutes
+} from '../../example-native/src/api/radio-garden'
 import { BrowserScreen } from '../screens'
 
 const styles = StyleSheet.create({
@@ -60,17 +70,19 @@ const configuration: BrowserConfiguration = {
     }
   ],
   media: {
-    async transform(request) {
-      if (request.path && request.path.startsWith('/rg/')) {
-        return {
-          baseUrl: 'https://radio.garden/api/ara/content/listen',
-          path: `${request.path.replace('/rg/', '')}/channel.mp3`
-        }
-      }
-      return request
+    // Shared with the native example rather than re-inlined, so the two can't
+    // drift. Each returns the request untouched when the path isn't its own.
+    async transform(request, params) {
+      return authedMediaTransform(
+        await radioGardenMediaTransform(request, params),
+        params
+      )
     }
   },
   routes: {
+    // Shared with the native example, like the media transforms above.
+    ...archiveRoutes,
+    ...radioGardenRoutes,
     '/api/**': {
       baseUrl: 'http://localhost:3003'
     },
@@ -81,102 +93,39 @@ const configuration: BrowserConfiguration = {
         children: favorites
       })
     },
-    '/library/playlists': {
-      path: '/library/playlists',
-      title: 'Radio Playlists',
-      children: [
-        {
-          title: 'Independent Sounds',
-          path: '/playlist/independent-sounds'
-        },
-        {
-          title: 'Energetic Rhythms',
-          path: '/playlist/energetic-rhythms'
-        }
-      ]
-    },
-    async '/playlist/{id}'({ routeParams }) {
-      return {
-        'independent-sounds': {
-          title: 'Independent Sounds',
-          path: '/api/playlist/independent-sounds',
-          children: [
-            {
-              title: 'Radio is a Foreign Country',
-              src: 'b35yEqjv',
-              live: true
-            },
-            { title: 'NTS 1', src: 'wT9JJD4j', live: true },
-            { title: 'Worldwide FM', src: '/rg/vfm-z7pR', live: true },
-            { title: 'Kiosk Radio', src: '/rg/rTzlLOJp', live: true },
-            { title: 'Rinse France', src: '/rg/39GkuKiS', live: true },
-            { title: 'Radio 80000', src: '/rg/MBWk5Fmi', live: true },
-            { title: 'Foundation FM', src: '/rg/QgsEUvYo', live: true },
-            { title: 'Dublin Digital Radio', src: '/rg/Bv4OzWTA', live: true },
-            { title: 'LYL Radio', src: '/rg/LINZ0-LZ', live: true }
-          ]
-        },
-        'energetic-rhythms': {
-          title: 'Energetic Rhythms',
-          path: '/playlist/energetic-rhythms',
-          children: [
-            { title: 'Noods Radio', src: '/rg/TdAjNy_3', live: true },
-            { title: 'Systrum Sistum - SSR2', src: '/rg/ftR_mtxU', live: true },
-            { title: 'Radio.D59B', src: '/rg/GSLfbwH8', live: true },
-            { title: 'Dublab DE', src: '/rg/IbYQwskl', live: true },
-            { title: 'Operator Radio', src: '/rg/8Ls6E7wH', live: true },
-            { title: 'datafruits', src: '/rg/nED7EFV4', live: true }
-          ]
-        }
-      }[routeParams!.id!]!
-    },
     '/library': {
       path: '/library',
       title: 'Library',
       sections: [
+        // Same sections, same order as the native example, from the same
+        // shared modules — so the two apps cannot drift. The rntp.dev demo
+        // files these replaced now 307 to www.rntp.dev and 404 there;
+        // Archive.org is also what the `/api/authed` routes redirect to, so it
+        // cannot rot independently of the rest of the app.
+        archiveLibrarySection,
+        radioGardenLibrarySection,
+        // Local HLS fixture. Next serves `public/whip/` at `/whip/`, so the
+        // manifest and all 17 segments are served by this app rather than a
+        // third-party host — HLS manifest parsing, segment loading and seeking
+        // stay testable offline, and can't rot when a remote URL moves.
+        //
+        // The manifest references its segments by relative name, so it needs no
+        // rewriting. Neither media transform claims `/whip/`, so the src reaches
+        // the player untouched.
         {
+          title: 'HLS',
           children: [
             {
-              path: '/library/playlists',
-              title: 'Radio Playlists'
-            }
-          ]
-        },
-        {
-          title: 'David Chavez',
-          children: [
-            {
-              src: 'https://rntp.dev/example/Soul%20Searching.mp3',
-              title: 'Soul Searching (Demo)',
-              artist: 'David Chavez',
-              artwork: 'https://rntp.dev/example/Soul%20Searching.jpeg',
-              duration: 77
-            },
-            {
-              src: 'https://rntp.dev/example/Lullaby%20(Demo).mp3',
-              title: 'Lullaby (Demo)',
-              artist: 'David Chavez',
-              artwork: 'https://rntp.dev/example/Lullaby%20(Demo).jpeg',
-              duration: 71
-            },
-            {
-              src: 'https://rntp.dev/example/Rhythm%20City%20(Demo).mp3',
-              title: 'Rhythm City (Demo)',
-              artist: 'David Chavez',
-              artwork: 'https://rntp.dev/example/Rhythm%20City%20(Demo).jpeg',
-              duration: 106
+              id: 'whip-hls',
+              title: 'Whip',
+              src: '/whip/playlist.m3u8',
+              artwork: '/whip/whip.jpeg'
             }
           ]
         },
         {
           title: 'Other',
           children: [
-            {
-              src: 'https://rntp.dev/example/hls/whip/playlist.m3u8',
-              title: 'Whip (m3u8 HLS Stream)',
-              artist: 'prazkhanal',
-              artwork: 'https://rntp.dev/example/hls/whip/whip.jpeg'
-            },
             {
               src: 'https://traffic.libsyn.com/atpfm/atp545.mp3',
               title: 'Chapters'

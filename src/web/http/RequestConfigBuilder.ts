@@ -56,6 +56,29 @@ function applyImageQueryParams(
   return { ...config, query }
 }
 
+/** Whether `after` carries a header `before` had not already set identically. */
+function addsHeaders(
+  before: Record<string, string> | undefined,
+  after: Record<string, string> | undefined
+): boolean {
+  if (!after) return false
+  return Object.entries(after).some(([key, value]) => before?.[key] !== value)
+}
+
+export interface ResolvedMediaRequest extends RequestConfig {
+  /**
+   * Whether the `media` layer set a header the shared `request` layer had not
+   * already set identically. A media-specific header is the signal that media
+   * is separately authenticated, which is what the web redirect probe gates
+   * on.
+   *
+   * By value, not by declaration: a media layer re-declaring a shared header
+   * with the same value reads as no contribution, which is what keeps an
+   * identity transform from tripping the probe.
+   */
+  mediaLayerHeaders: boolean
+}
+
 /**
  * Builds and merges request configurations.
  * Mirrors Android's RequestConfigBuilder.kt
@@ -98,7 +121,9 @@ export const RequestConfigBuilder = {
    * A layer with a transform wins completely — it receives the base (plus route
    * params) and its result replaces the base; the layer's own static fields are
    * ignored. A layer without a transform merges its static fields over the base.
-   * `path` is carried from the base — only a transform may change it.
+   * `path` is carried from the base — only a transform may change it. A
+   * throwing transform falls back to the base, so the layer is skipped and the
+   * ladder continues.
    *
    * Mirrors native's BrowserManager.applyLayer so web resolves the shared
    * `request` → `<kind>` → route chain identically across platforms.
@@ -113,10 +138,24 @@ export const RequestConfigBuilder = {
     // its result replaces it. When both are set they run as a pipeline — async
     // first, then sync (mirrors native applyLayer).
     if (layer.transform || layer.transformSync) {
-      let cfg = base
-      if (layer.transform) cfg = await layer.transform(cfg, params)
-      if (layer.transformSync) cfg = layer.transformSync(cfg, params)
-      return cfg
+      try {
+        let cfg = base
+        if (layer.transform) cfg = await layer.transform(cfg, params)
+        if (layer.transformSync) cfg = layer.transformSync(cfg, params)
+        return cfg
+      } catch (e) {
+        // A throwing transform costs its own layer, not the ladder: the layers
+        // under it stand, so a relative path still gets the shared `baseUrl`
+        // and a media request keeps the shared credential. One catch around
+        // the pair, as native has it, so a sync stage that throws after a
+        // successful async one also falls back to the layer's input rather
+        // than to a half-applied config.
+        console.error(
+          'Failed to apply transform function, using base config',
+          e
+        )
+        return base
+      }
     }
     return {
       method: layer.method ?? base.method,
@@ -171,36 +210,113 @@ export const RequestConfigBuilder = {
   },
 
   /**
-   * Resolves a media URL using the media configuration.
-   * Creates a RequestConfig with the track's src as the path, then builds the URL.
-   * Supports the transform callback for URL manipulation.
+   * Resolves a media request from the layered configuration, returning the
+   * whole request rather than just its URL.
    *
-   * The shared `request` layer is applied first (its transform runs for media
-   * too, per the documented contract — e.g. a dynamic baseUrl), then the media
-   * transform / static fields on top. Mirrors native's resolveMediaUrl,
-   * including its best-effort behaviour: if a transform throws, fall back to the
-   * original `src` rather than failing the load.
+   * The layers resolve headers (and a user agent) alongside the URL, and the
+   * media request needs all of them: native applies them to the AVURLAsset /
+   * ExoPlayer DataSpec, so web has to apply them to Shaka's requests or the
+   * same configuration authenticates on iOS and Android but 401s here.
+   *
+   * The resolved URL is returned in `path`, with `baseUrl` already folded into
+   * it. Best-effort throughout, but at two levels: a throwing transform or
+   * resolver costs only its own layer (see {@link applyLayer}), and the catch
+   * here is the backstop for anything left — a malformed `baseUrl` reaching
+   * `buildUrl`, say — which falls back to the bare `src`.
+   *
+   * The chain is `request` → `media` → `media.resolve(track)`, matching
+   * native's. See {@link applyMediaResolve} for why the per-track resolver goes
+   * last.
    *
    * @param src The track's src value (may be relative or absolute)
    * @param requestConfig The shared request configuration (applied first)
    * @param mediaConfig The media request configuration
-   * @returns The resolved absolute URL
+   * @param track The track being loaded, for `media.resolve`; without it the
+   *   per-track layer is skipped and the static layers stand
+   * @returns The resolved request, its URL in `path`
    */
-  async resolveMediaUrl(
+  async resolveMediaRequest(
     src: string,
     requestConfig: TransformableRequestConfig | undefined,
-    mediaConfig: MediaRequestConfig | undefined
-  ): Promise<string> {
+    mediaConfig: MediaRequestConfig | undefined,
+    track?: Track
+  ): Promise<ResolvedMediaRequest> {
     try {
-      const config = await this.applyLayers({ path: src }, [
-        requestConfig,
-        mediaConfig
-      ])
-      return BrowserPathHelper.buildUrl(config.baseUrl, config.path ?? src)
+      // The layers are applied one at a time rather than through `applyLayers`
+      // so the media layer's own header contribution stays visible; each
+      // transform still runs exactly once.
+      const shared = await this.applyLayer({ path: src }, requestConfig)
+      const layered = await this.applyLayer(shared, mediaConfig)
+      const config = await this.applyMediaResolve(layered, mediaConfig, track)
+      // buildUrl folds in baseUrl *and* appends `query`; both are cleared on
+      // the way out so the resolved url can't be rebuilt and double-applied.
+      return {
+        ...config,
+        baseUrl: undefined,
+        query: undefined,
+        path: this.buildUrl({ ...config, path: config.path ?? src }),
+        mediaLayerHeaders: addsHeaders(shared.headers, config.headers)
+      }
     } catch (e) {
       console.error('Failed to resolve media URL, using original src', e)
-      return BrowserPathHelper.buildUrl(undefined, src)
+      return {
+        path: BrowserPathHelper.buildUrl(undefined, src),
+        mediaLayerHeaders: false
+      }
     }
+  },
+
+  /**
+   * Applies `media.resolve(track)` / `media.resolveSync(track)` as the final,
+   * most-specific layer over an already request+media-layered config. A no-op
+   * without a track or a resolver, so the layers stand on their own.
+   *
+   * Last, not first: native runs the media layer's transform and then lets the
+   * per-track resolver win over the result (Android `applyMediaResolve`, iOS
+   * `applyMediaResolveLayer`), so a resolver minting a signed URL is not
+   * overwritten by the static layer that shaped the unsigned one. Override-wins
+   * on every field, `path` included — replacing the URL outright is the point.
+   *
+   * A throwing resolver falls back to the layered config, as native does: the
+   * per-track shaping is lost, the layers under it are not.
+   */
+  async applyMediaResolve(
+    layered: RequestConfig,
+    mediaConfig: MediaRequestConfig | undefined,
+    track: Track | undefined
+  ): Promise<RequestConfig> {
+    if (!track || !mediaConfig) return layered
+    if (!mediaConfig.resolve && !mediaConfig.resolveSync) return layered
+
+    try {
+      const resolved = await this.composeResolved(mediaConfig, track)
+      return resolved ? this.mergeConfig(layered, resolved) : layered
+    } catch (e) {
+      console.error('Failed to apply media.resolve, using layered config', e)
+      return layered
+    }
+  },
+
+  /**
+   * Runs a config's per-track resolvers and composes their output: async
+   * `resolve` first, then `resolveSync` merged over it, sync winning.
+   * `undefined` when neither is set or neither produced a config.
+   *
+   * Media and artwork share the pairing, so it lives here rather than in both
+   * — the same reason native has `composeResolved`. Errors are the callers' to
+   * handle: the two paths differ on what a throwing resolver costs.
+   */
+  async composeResolved(
+    config: Pick<MediaRequestConfig, 'resolve' | 'resolveSync'>,
+    track: Track
+  ): Promise<RequestConfig | undefined> {
+    let resolved: RequestConfig | undefined
+    if (config.resolve) resolved = await config.resolve(track)
+    if (config.resolveSync) {
+      const sync = config.resolveSync(track)
+      resolved = resolved ? this.mergeConfig(resolved, sync) : sync
+    }
+    return resolved
   },
 
   /**
@@ -297,16 +413,7 @@ export const RequestConfigBuilder = {
 
       // Step 1: Per-track resolution — async `resolve` first, then `resolveSync`
       // merged over it (mirrors native).
-      let resolvedConfig: RequestConfig | undefined
-      if (artworkConfig.resolve) {
-        resolvedConfig = await artworkConfig.resolve(track)
-      }
-      if (artworkConfig.resolveSync) {
-        const r = artworkConfig.resolveSync(track)
-        resolvedConfig = resolvedConfig
-          ? this.mergeConfig(resolvedConfig, r)
-          : r
-      }
+      const resolvedConfig = await this.composeResolved(artworkConfig, track)
       // If a resolver ran but produced nothing and there's no artwork URL, no artwork
       if (
         (artworkConfig.resolve || artworkConfig.resolveSync) &&

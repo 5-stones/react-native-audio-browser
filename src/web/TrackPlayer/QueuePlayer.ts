@@ -22,18 +22,33 @@ export class QueuePlayer extends Player {
     // was a silent pause) and armed load()'s auto-play with phantom intent.
     // Cleared before the state lands so consumers observe the native order
     // (intent → state → queueEnded), independent of onQueueEnded overrides.
-    // Per-track ends that advance the queue keep the intent.
-    if (state === State.Ended && this.endsQueue()) {
+    if (state !== State.Ended) {
+      super.applyState(state)
+      return
+    }
+
+    // A track ending mid-queue is not an `ended` playback state: ExoPlayer
+    // reaches STATE_ENDED only at the end of the *playlist*, and an advance
+    // between items stays READY/BUFFERING. Web loads one track at a time, so
+    // the element's own `ended` arrives every time — reporting it flashed a
+    // terminal state, and dropped `PlayingState.playing` to false, between
+    // every pair of tracks. Repeat-one counts as mid-queue for the same
+    // reason: native reports nothing there either.
+    if (this.endsQueue()) {
+      // The real end: the intent goes with it, and the state is genuinely ended.
       this.playWhenReady = false
-    }
-
-    super.applyState(state)
-
-    // dispatch() already gates on _isStopped before reaching applyState, so a
-    // natural end while stopped never advances the queue.
-    if (state === State.Ended) {
+      super.applyState(state)
+      // dispatch() already gates on _isStopped before reaching applyState, so a
+      // natural end while stopped never advances the queue.
       this.onTrackEnded()
+      return
     }
+
+    // Suppressing `ended` is only safe when something takes over the state. A
+    // handler that declines to advance — the sleep timer set to end-of-track —
+    // leaves nothing to move it, and the player would sit reporting `playing`
+    // with nothing playing. Report the end in that case, as before.
+    if (!this.onTrackEnded()) super.applyState(state)
   }
 
   /** True when a natural end has nowhere to go: not repeating, no next track. */
@@ -45,18 +60,22 @@ export class QueuePlayer extends Player {
     )
   }
 
-  protected onTrackEnded() {
+  /**
+   * @returns whether it started another load, and so owns the playback state
+   *   from here. `false` means the caller still has to report the end itself.
+   */
+  protected onTrackEnded(): boolean {
     if (this.queue.repeatMode === RepeatMode.Track) {
-      if (this.queue.currentIndex !== undefined) {
-        this.goToIndex(this.queue.currentIndex)
-      }
-      return
+      if (this.queue.currentIndex === undefined) return false
+      this.goToIndex(this.queue.currentIndex)
+      return true
     }
     if (this.endsQueue()) {
       this.onQueueEnded()
-      return
+      return false
     }
     this.skipToNext()
+    return true
   }
 
   /**

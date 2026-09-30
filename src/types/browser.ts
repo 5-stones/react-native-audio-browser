@@ -432,8 +432,16 @@ export interface ImageQueryParams {
  * When a request is made, configs are merged in this order (later overrides earlier):
  * 1. `request` (base config) - shared settings like user agent, common headers
  * 2. `media`/`artwork` config - resource-specific settings
- * 3. `resolve(track)` result - per-track overrides (if provided)
- * 4. `transform(request)` result - final modifications (if provided)
+ * 3. the per-track callbacks, in an order that differs by kind:
+ *    - `artwork`: `resolve(track)`, then `transform(request)` last
+ *    - `media`: `transform(request)`, then **`resolve(track)` last** — the
+ *      per-track resolver is the most specific layer and wins over the
+ *      transform, on every platform
+ *
+ * The `media` order is deliberate: a resolver minting a per-track signed URL
+ * must not be overwritten by the static layer that shaped the unsigned one. It
+ * means a `media.transform` cannot sign what `resolve` produced — do that work
+ * inside `resolve`, or move the signing to `transform` and drop `resolve`.
  *
  * ### Usage Patterns
  *
@@ -478,8 +486,9 @@ export interface MediaRequestConfig extends TransformableRequestConfig {
    * Receives the full Track object, allowing URL generation based on
    * track metadata (id, artist, album, src, etc.).
    *
-   * The returned config is merged with base configs, then passed to
-   * `transform` if provided.
+   * Runs **last** for media — after `transform`, and winning over it on every
+   * field including `path`. See the hierarchy note on this interface; artwork
+   * runs them the other way round.
    *
    * @param track - The track being requested
    * @returns Request configuration for this specific track (sync or async)
